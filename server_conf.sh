@@ -26,6 +26,9 @@ echo \
 sudo apt-get update
 
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+sudo systemctl enable docker
+sudo systemctl start docker
 
 # Configuracion de proyecto
+sudo apt install python3-pip python3-venv -y 
 git clone https://github.com/valdiviesod/kubepy -b dev
