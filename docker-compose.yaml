@@ -1,0 +1,8 @@
+services:
+  kubepy:
+    build: .
+    volumes:
+      - .:/app
+      # Cargar ruta .kube local
+    environment:
+      - KUBECONFIG=/path/to/your/kubeconfig 
