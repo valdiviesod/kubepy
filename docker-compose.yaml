@@ -3,6 +3,6 @@ services:
     build: .
     volumes:
       - .:/app
-      # Cargar ruta .kube local
+      - /home/v4ld1/.kube:/root/.kube  # Montar el directorio .kube local en el contenedor
     environment:
-      - KUBECONFIG=/path/to/your/kubeconfig 
+      - KUBECONFIG=/root/.kube/config  # Montar ruta al contenedor

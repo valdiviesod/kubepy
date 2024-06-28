@@ -2,7 +2,7 @@
 sudo apt-get update && sudo apt-get upgrade -y
 sudo swapoff -a
 sudo sed -i '/ swap / s/^/#/' /etc/fstab
-sudo apt-get install -y apt-transport-https ca-certificates curl gpg containerd
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg containerd git
 # Key repo
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 # Añadir repositorio Version 1.30
@@ -20,6 +20,7 @@ sudo kubeadm init --pod-network-cidr=<your-pod-network-cidr>
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
 # Configuracion de Docker
 # Add Docker's official GPG key:
 sudo apt-get update
@@ -29,9 +30,12 @@ sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyring
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 # Add the repository to Apt sources:
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+sudo systemctl enable docker
+
+# Configuracion de proyecto
+git clone https://github.com/valdiviesod/kubepy -b dev
