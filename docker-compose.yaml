@@ -1,8 +1,7 @@
 services:
-  kubepy:
+  python-app:
     build: .
     volumes:
-      - .:/app
-      - /home/v4ld1/.kube:/root/.kube  # Montar el directorio .kube local en el contenedor
+      - ./kubeconfig:/home/v4ld1/.kube/config
     environment:
-      - KUBECONFIG=/root/.kube/config  # Montar ruta al contenedor
+      - KUBECONFIG=/root/.kube/config
