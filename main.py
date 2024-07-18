@@ -10,4 +10,7 @@ pod.create()
 import kr8s
 
 for node in kr8s.get("nodes"):
-    print(node.name)
+    print("Node name:" , node.name)
+
+for pod in kr8s.get("pods", field_selector="status.phase=Running"):
+    print("Pod names:", pod.name)
