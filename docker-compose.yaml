@@ -2,6 +2,6 @@ services:
   python-app:
     build: .
     volumes:
-      - ./kubeconfig:/home/v4ld1/.kube/config
+      - ./.kube:/root/.kube
     environment:
       - KUBECONFIG=/root/.kube/config
