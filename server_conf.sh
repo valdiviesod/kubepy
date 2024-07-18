@@ -33,4 +33,5 @@ sudo systemctl start docker
 
 # Configuracion de proyecto (Pruebas)
 sudo apt install python3-pip python3-venv -y 
+echo "Complete"
 
