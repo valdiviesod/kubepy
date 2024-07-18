@@ -1,7 +1,0 @@
-services:
-  python-app:
-    build: .
-    volumes:
-      - .kube:/root/.kube
-    environment:
-      - KUBECONFIG=/root/.kube/config
