@@ -1,4 +1,6 @@
 # Instalacion y configuracion del servidor kubernetes en Ubuntu Server 24.04
+# Configurar dns con netplan
+git clone https://github.com/valdiviesod/kubepy -b dev
 sudo snap install microk8s --classic
 sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -31,4 +33,4 @@ sudo systemctl start docker
 
 # Configuracion de proyecto (Pruebas)
 sudo apt install python3-pip python3-venv -y 
-git clone https://github.com/valdiviesod/kubepy -b dev
+
