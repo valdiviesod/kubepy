@@ -10,7 +10,9 @@ sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list
 sudo apt-get update
 sudo apt-get install -y kubectl
 sudo snap alias microk8s.kubectl kubectl
-microk8s.kubectl config view --raw > $HOME/.kube/config
+mkdir $HOME/.kube
+touch mkdir $HOME/.kube/.config
+sudo microk8s.kubectl config view --raw > $HOME/.kube/config
 
 # Configuracion de docker
 # Add Docker's official GPG key:
