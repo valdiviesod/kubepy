@@ -5,7 +5,7 @@ RUN pip install kr8s
 
 # Copia el script de Python y el directorio .kube al contenedor
 COPY main.py /app/main.py
-COPY ../.kube /root/.kube
+COPY .kube /root/.kube
 
 # Establece el directorio de trabajo
 WORKDIR /app
