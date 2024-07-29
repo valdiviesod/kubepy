@@ -1,9 +1,7 @@
-import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
-import kr8s
 from kubernetes import client, config
 
 app = Flask(__name__)
@@ -11,7 +9,7 @@ app = Flask(__name__)
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://username:password@localhost/k8s_management'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Change this!
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'  
 app.config['MAX_PODS_PER_USER'] = 5
 
 # Initialize extensions
@@ -23,7 +21,7 @@ jwt = JWTManager(app)
 config.load_kube_config()
 v1 = client.CoreV1Api()
 
-# User model
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -37,7 +35,7 @@ class Pod(db.Model):
     ip = db.Column(db.String(15), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-# Authentication routes
+
 @app.route('/register', methods=['POST'])
 def register():
     username = request.json.get('username', None)
@@ -68,7 +66,7 @@ def login():
     
     return jsonify({"msg": "Invalid username or password"}), 401
 
-# Kubernetes routes
+
 @app.route('/pods', methods=['GET'])
 @jwt_required()
 def get_pods():
@@ -151,9 +149,7 @@ def get_pod_terminal(pod_name):
     if not db_pod:
         return jsonify({"msg": "Pod not found or not owned by user"}), 404
     
-    # Here you would implement the logic to provide terminal access to the pod
-    # This could involve setting up a web socket connection or providing connection details
-    # For this example, we'll just return the pod's IP address
+    # Return terminal access (TO DO)
     return jsonify({"msg": "Terminal access details", "pod_ip": db_pod.ip}), 200
 
 if __name__ == '__main__':

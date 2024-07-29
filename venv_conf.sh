@@ -1,2 +1,3 @@
 python3 -m venv ./
-./bin/pip install kr8s
+./bin/pip install kubernetes
+./bin/pip install flask
