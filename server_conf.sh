@@ -35,6 +35,17 @@ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin 
 sudo systemctl enable docker
 sudo systemctl start docker
 
+# MySQL
+sudo apt install mysql-server -y
+sudo systemctl enable mysql
+sudo systemctl start mysql
+sudo mysql_secure_installation
+sudo systemctl restart mysqld
+# Configuracion de base de datos y permisos
+# https://docs.vultr.com/how-to-install-mysql-on-ubuntu-24-04
+
+
+
 # Configuracion de proyecto (Pruebas)
 sudo apt install python3-pip python3-venv -y 
 cd kubepy
