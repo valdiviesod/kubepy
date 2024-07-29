@@ -1,8 +1,10 @@
 # Instalacion y configuracion del servidor kubernetes en Ubuntu Server 24.04
-# Configurar dns con netplan
+# Configurar dns con netplan previamente
+# Instalar microk8s en el proceso de configuracion o manualmente
+# sudo snap install microk8s --classic
 # git clone https://github.com/valdiviesod/kubepy -b dev
-sudo snap install microk8s --classic
 sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
+# Reemplazar version del paquete segun la version actual
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
@@ -39,5 +41,5 @@ cd kubepy
 mkdir .kube
 rsync -avh ~/.kube/ ~/kubepy/.kube/
 
-echo "Complete"
+echo "Server Setup Complete"
 
