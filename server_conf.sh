@@ -1,7 +1,11 @@
 # Instalacion y configuracion del servidor kubernetes en Debian 12
+apt install sudo git
 # git clone https://github.com/valdiviesod/kubepy -b dev
 # Configurar red primero
 # Guia: https://reintech.io/blog/configuring-network-interfaces-debian-12
+
+# Sudo
+# Guia: https://itslinuxguide.com/add-users-sudoers-file-debian/
 # Ejecutar comandos como root
 
 # Configuracion de Kubernetes
@@ -13,7 +17,7 @@
 # TCP/10259: Kube scheduler (see note below)
 # TCP/30000-32767: Nodeport services
 
-swapoff -a
+sudo swapoff -a
 nano /etc/fstab # comment out the swap line
 
 # Bridge de interfaz de red
@@ -22,8 +26,8 @@ overlay
 br_netfilter
 EOF
 
-modprobe overlay
-modprobe br_netfilter
+sudo modprobe overlay
+sudo modprobe br_netfilter
 
 cat <<EOF | tee /etc/sysctl.d/99-kubernetes-k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
@@ -31,53 +35,7 @@ net.ipv4.ip_forward = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 EOF
 
-sysctl --system
-
-# Instalacion de containerd
-apt update
-apt install -y containerd
-
-containerd config default > /etc/containerd/config.toml
-
-nano /etc/containerd/config.toml
-
-# Cambiar a true: [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options] SystemdCgroup = true
-
-systemctl enable containerd
-systemctl restart containerd
-
-# Instalacion de Kubernetes
-apt install gnupg gnupg2 curl software-properties-common -y
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmour -o /etc/apt/trusted.gpg.d/cgoogle.gpg
-apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
-
-apt update
-apt install kubelet kubeadm kubectl -y
-
-apt-mark hold kubelet kubeadm kubectl
-
-kubeadm init --control-plane-endpoint=$HOSTNAME
-
-# Como usuario SIN PRIVILEGIOS
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-source <(kubectl completion bash)
-echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
-
-# Calico para la administracion de red
-kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
-
-# Configuracion de single node
-kubectl get nodes
-kubectl get nodes -o json | jq '.items[].spec.taints'
-kubectl taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule-
-
-# Probar
-kubectl get nodes -o json | jq '.items[].spec.taints'
-kubectl get pods -n kube-system
-
+sudo sysctl --system
 
 # Configuracion de docker
 # Add Docker's official GPG key:
@@ -95,6 +53,60 @@ echo \
 apt-get update
 
 apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+
+# Instalacion de containerd
+#apt update
+#apt install -y containerd
+
+#containerd config default > /etc/containerd/config.toml
+
+#nano /etc/containerd/config.toml
+
+# Cambiar a true: [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options] SystemdCgroup = false
+
+#systemctl enable containerd
+#systemctl restart containerd
+
+# Instalacion de herramientas Kubernetes
+# Guia: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+apt install gnupg gnupg2 curl software-properties-common -y
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmour -o /etc/apt/trusted.gpg.d/cgoogle.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+apt update
+apt install kubelet kubeadm kubectl -y
+sudo apt-mark hold kubelet kubeadm kubectl
+sudo systemctl enable --now kubelet
+
+# Ignorar errores de preflight por paquetes que ya existen
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all
+
+# Como usuario SIN PRIVILEGIOS
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+source <(kubectl completion bash)
+echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
+
+# Configuracion de red 
+# https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/tigera-operator.yaml
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/custom-resources.yaml
+watch kubectl get pods -n calico-system
+
+# Configuracion de single node
+kubectl get nodes
+kubectl get nodes -o json | jq '.items[].spec.taints'
+kubectl taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule-
+
+# Probar
+kubectl get nodes -o json | jq '.items[].spec.taints'
+kubectl get pods -n kube-system
+
+
+
 
 # MySQL
 # Ultima version repo mysql
