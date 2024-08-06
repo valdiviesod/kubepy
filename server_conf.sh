@@ -81,6 +81,7 @@ sudo systemctl enable --now kubelet
 
 # Ignorar errores de preflight por paquetes que ya existen
 sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all
+#sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all --kubelet-extra-args="--max-pods=1000"
 
 # Como usuario SIN PRIVILEGIOS
 mkdir -p $HOME/.kube
@@ -90,22 +91,19 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 source <(kubectl completion bash)
 echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
 
-# Configuracion de red 
+# Configuracion de calico
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/tigera-operator.yaml
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/custom-resources.yaml
-watch kubectl get pods -n calico-system
-
-# Configuracion de single node
-kubectl get nodes
-kubectl get nodes -o json | jq '.items[].spec.taints'
-kubectl taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule-
-
-# Probar
-kubectl get nodes -o json | jq '.items[].spec.taints'
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 kubectl get pods -n kube-system
 
+# Configuracion de single node
+#kubectl get nodes
+#kubectl get nodes -o json | jq '.items[].spec.taints'
+#kubectl taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule-
 
+# Probar
+#kubectl get nodes -o json | jq '.items[].spec.taints'
+#kubectl get pods -n kube-system
 
 
 # MySQL
