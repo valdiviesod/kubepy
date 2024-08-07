@@ -20,22 +20,7 @@ apt install sudo git
 sudo swapoff -a
 nano /etc/fstab # comment out the swap line
 
-# Bridge de interfaz de red
-cat <<EOF | tee /etc/modules-load.d/containerd.conf
-overlay
-br_netfilter
-EOF
 
-sudo modprobe overlay
-sudo modprobe br_netfilter
-
-cat <<EOF | tee /etc/sysctl.d/99-kubernetes-k8s.conf
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-EOF
-
-sudo sysctl --system
 
 # Configuracion de docker
 # Add Docker's official GPG key:
@@ -54,18 +39,6 @@ apt-get update
 
 apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
 
-# Instalacion de containerd
-#apt update
-#apt install -y containerd
-
-#containerd config default > /etc/containerd/config.toml
-
-#nano /etc/containerd/config.toml
-
-# Cambiar a true: [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options] SystemdCgroup = false
-
-#systemctl enable containerd
-#systemctl restart containerd
 
 # Instalacion de herramientas Kubernetes
 # Guia: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
@@ -78,9 +51,17 @@ apt update
 apt install kubelet kubeadm kubectl -y
 sudo apt-mark hold kubelet kubeadm kubectl
 sudo systemctl enable --now kubelet
+sudo systemctl start containerd
+sudo systemctl enable containerd
+sudo nano /etc/containerd/config.toml
+# Comentar la linea CRI
+sudo systemctl restart containerd
+# Si hay errores en el pull
+sudo ctr image pull registry.k8s.io/pause:3.9
+
 
 # Ignorar errores de preflight por paquetes que ya existen
-sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=all
 #sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all --kubelet-extra-args="--max-pods=1000"
 
 # Como usuario SIN PRIVILEGIOS
@@ -93,24 +74,15 @@ echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
 
 # Configuracion de calico
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
-kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
-kubectl get pods -n kube-system
-
-# Configuracion de single node
-#kubectl get nodes
-#kubectl get nodes -o json | jq '.items[].spec.taints'
-#kubectl taint node <nodename> node-role.kubernetes.io/control-plane:NoSchedule-
-
-# Probar
-#kubectl get nodes -o json | jq '.items[].spec.taints'
+#kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 #kubectl get pods -n kube-system
 
 
 # MySQL
 # Ultima version repo mysql
 # https://dev.mysql.com/downloads/repo/apt/
-wget https://dev.mysql.com/get/mysql-apt-config_0.8.30-1_all.deb
-dpkg -i mysql-apt-config_0.8.30-1_all.deb
+wget https://dev.mysql.com/get/mysql-apt-config_0.8.32-1_all.deb
+dpkg -i mysql-apt-config_0.8.32-1_all.deb
 apt update
 apt install mysql-server -y
 systemctl enable mysql
@@ -125,6 +97,8 @@ cd kubepy
 mkdir .kube
 rsync -avh ~/.kube/ ~/kubepy/.kube/
 
-# Configurar firewall
+# Jenkins
+
+
 
 
