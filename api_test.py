@@ -7,9 +7,9 @@ from kubernetes import client, config
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://username:password@localhost/k8s_management'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management' # Usuario y contraseña solo de testing
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'  
+app.config['JWT_SECRET_KEY'] = '1701046' # Clave secreta solo de testing  
 app.config['MAX_PODS_PER_USER'] = 5
 
 # Initialize extensions
