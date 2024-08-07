@@ -1,3 +1,2 @@
 python3 -m venv ./
-./bin/pip install kubernetes
-./bin/pip install flask
+./bin/pip install flask flask-sqlalchemy flask-bcrypt flask-jwt-extended kubernetes
