@@ -4,16 +4,14 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from kubernetes import client, config
 import pymysql
-import threading
-import time
 pymysql.install_as_MySQLdb()
 
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management'  # Usuario y contraseña solo de testing
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = '1701046'
+app.config['JWT_SECRET_KEY'] = '1701046'  # Clave secreta solo de testing
 app.config['MAX_PODS_PER_USER'] = 5
 
 # Initialize extensions
@@ -36,40 +34,6 @@ class Pod(db.Model):
     name = db.Column(db.String(120), nullable=False)
     ip = db.Column(db.String(15), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-def create_pod_in_background(user, pod_name, image):
-    try:
-        pod_manifest = {
-            "apiVersion": "v1",
-            "kind": "Pod",
-            "metadata": {
-                "name": f"{user.username}-{pod_name}",
-                "labels": {
-                    "user": user.username
-                }
-            },
-            "spec": {
-                "containers": [{
-                    "name": pod_name,
-                    "image": image
-                }]
-            }
-        }
-        
-        api_response = v1.create_namespaced_pod(body=pod_manifest, namespace="default")
-        
-        while True:
-            pod = v1.read_namespaced_pod(name=f"{user.username}-{pod_name}", namespace="default")
-            if pod.status.phase == 'Running' and pod.status.pod_ip:
-                pod_ip = pod.status.pod_ip
-                break
-            time.sleep(1)
-        
-        db_pod = Pod(name=f"{user.username}-{pod_name}", ip=pod_ip, user_id=user.id)
-        db.session.add(db_pod)
-        db.session.commit()
-    except Exception as e:
-        print(f"Error creating pod: {str(e)}")
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -122,13 +86,40 @@ def create_pod():
     if user_pod_count >= app.config['MAX_PODS_PER_USER']:
         return jsonify({"msg": f"Maximum number of pods ({app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
-    # Respond immediately that the creation is in progress
-    response = jsonify({"msg": "Pod creation in progress"})
-    
-    # Start background thread to create pod
-    threading.Thread(target=create_pod_in_background, args=(current_user, pod_name, image)).start()
-    
-    return response, 202
+    try:
+        pod_manifest = {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "name": f"{current_user.username}-{pod_name}",
+                "labels": {
+                    "user": current_user.username
+                }
+            },
+            "spec": {
+                "containers": [{
+                    "name": pod_name,
+                    "image": image
+                }]
+            }
+        }
+        
+        api_response = v1.create_namespaced_pod(body=pod_manifest, namespace="default")
+        
+        # Wait for the pod to be running and get its IP
+        while True:
+            pod = v1.read_namespaced_pod(name=f"{current_user.username}-{pod_name}", namespace="default")
+            if pod.status.phase == 'Running' and pod.status.pod_ip:
+                pod_ip = pod.status.pod_ip
+                break
+        
+        db_pod = Pod(name=f"{current_user.username}-{pod_name}", ip=pod_ip, user_id=current_user.id)
+        db.session.add(db_pod)
+        db.session.commit()
+        
+        return jsonify({"msg": "Pod created successfully", "name": db_pod.name, "ip": db_pod.ip}), 201
+    except Exception as e:
+        return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
 
 @app.route('/pods/<pod_name>', methods=['DELETE'])
 @jwt_required()
@@ -156,6 +147,7 @@ def get_pod_terminal(pod_name):
     if not db_pod:
         return jsonify({"msg": "Pod not found or not owned by user"}), 404
     
+    # Return terminal access (TO DO)
     return jsonify({"msg": "Terminal access details", "pod_ip": db_pod.ip}), 200
 
 if __name__ == '__main__':
