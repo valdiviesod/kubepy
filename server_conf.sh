@@ -1,6 +1,6 @@
 # Instalacion y configuracion del servidor kubernetes en Debian 12
+#https://www.marioverhaeg.nl/2024/06/18/install-a-clean-kubernetes-cluster-on-debian-12look-for-the-section-plugins-io-containerd-grpc-v1-cri-containerd-runtimes-runc-options-and-change-systemd/
 apt install sudo git
-# git clone https://github.com/valdiviesod/kubepy -b dev
 # Configurar red primero
 # Guia: https://reintech.io/blog/configuring-network-interfaces-debian-12
 
@@ -17,27 +17,31 @@ apt install sudo git
 # TCP/10259: Kube scheduler (see note below)
 # TCP/30000-32767: Nodeport services
 
+systemctl mask dev-sda3.swap
+sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+reboot
+
 sudo swapoff -a
 nano /etc/fstab # comment out the swap line
 
+cat <<EOF | tee /etc/modules-load.d/containerd.conf 
+overlay 
+br_netfilter
+EOF
 
+sudo modprobe overlay && sudo modprobe br_netfilter
 
-# Configuracion de docker
-# Add Docker's official GPG key:
-apt-get update
-apt-get install ca-certificates curl -y
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-chmod a+r /etc/apt/keyrings/docker.asc
+cat <<EOF | tee /etc/sysctl.d/99-kubernetes-k8s.conf
+net.bridge.bridge-nf-call-iptables = 1
+net.ipv4.ip_forward = 1 
+net.bridge.bridge-nf-call-ip6tables = 1 
+EOF
 
-# Add the repository to Apt sources:
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt-get update
+apt-get update && apt-get install containerd -y
 
-apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+containerd config default | tee /etc/containerd/config.toml >/dev/null 2>&1
+
+nano /etc/containerd/config.toml
 
 
 # Instalacion de herramientas Kubernetes
@@ -47,21 +51,20 @@ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmour -
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
-apt update
-apt install kubelet kubeadm kubectl -y
-sudo apt-mark hold kubelet kubeadm kubectl
-sudo systemctl enable --now kubelet
-sudo systemctl start containerd
-sudo systemctl enable containerd
-sudo nano /etc/containerd/config.toml
-# Comentar la linea CRI
-sudo systemctl restart containerd
-# Si hay errores en el pull
-sudo ctr image pull registry.k8s.io/pause:3.9
+apt-get update && apt-get install kubelet kubeadm kubectl -y && apt-mark hold kubelet kubeadm kubectl
+sudo sysctl -w net.ipv4.ip_forward=1
 
+
+ln -s /sbin/ebtables /usr/bin/ebtables
+ln -s /sbin/ethtool /usr/bin/ethtool
+ln -s /sbin/tc /usr/bin/tc
+ln -s /sbin/conntrack /usr/bin/conntrack
+ln -s /sbin/iptables /usr/bin/iptables
+
+sudo sysctl -w net.ipv4.ip_forward=1
 
 # Ignorar errores de preflight por paquetes que ya existen
-sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=all
+kubeadm init --pod-network-cidr=192.168.0.0/16
 #sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all --kubelet-extra-args="--max-pods=1000"
 
 # Como usuario SIN PRIVILEGIOS
@@ -74,14 +77,15 @@ echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
 
 # Configuracion de calico
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
-#kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
-#kubectl get pods -n kube-system
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/calico.yaml
+
 
 
 # MySQL
 # Ultima version repo mysql
 # https://dev.mysql.com/downloads/repo/apt/
 wget https://dev.mysql.com/get/mysql-apt-config_0.8.32-1_all.deb
+export PATH=$PATH:/usr/local/sbin:/usr/sbin:/sbin
 dpkg -i mysql-apt-config_0.8.32-1_all.deb
 apt update
 apt install mysql-server -y
@@ -92,16 +96,16 @@ mysql_secure_installation
 # CREATE DATABASE k8s_management;
 
 
-
 # Configuracion de proyecto (Pruebas)
 apt install python3-pip python3-venv -y 
 sudo apt install -y pkg-config libmysqlclient-dev
 sudo apt install -y default-libmysqlclient-dev
 
-
+git clone https://github.com/valdiviesod/kubepy -b dev
 cd kubepy
 mkdir .kube
 rsync -avh ~/.kube/ ~/kubepy/.kube/
+
 
 # Jenkins
 
