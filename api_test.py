@@ -4,7 +4,7 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from kubernetes import client, config
 import pymysql
-pymysql.install_as_MySQLdb()
+pymysql.install_as_MySQLdb()chm
 
 
 app = Flask(__name__)

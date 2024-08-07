@@ -166,5 +166,4 @@ cython_debug/
 /lib64
 /include
 pyvenv.cfg
-
-
+/venv
