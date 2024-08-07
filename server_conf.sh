@@ -79,6 +79,9 @@ echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
 kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/calico.yaml
 
+kubectl taint nodes <node_name> node-role.kubernetes.io/control-plane-
+
+
 
 
 # MySQL
