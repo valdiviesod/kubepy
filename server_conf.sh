@@ -94,6 +94,9 @@ mysql_secure_installation
 # Configuracion de proyecto (Pruebas)
 apt install python3-pip python3-venv -y 
 sudo apt install -y pkg-config libmysqlclient-dev
+sudo apt install -y default-libmysqlclient-dev
+
+
 cd kubepy
 mkdir .kube
 rsync -avh ~/.kube/ ~/kubepy/.kube/
