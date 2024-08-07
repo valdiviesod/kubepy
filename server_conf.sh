@@ -89,6 +89,8 @@ systemctl enable mysql
 systemctl start mysql
 mysql_secure_installation
 # Configurar base de datos y permisos
+# CREATE DATABASE k8s_management;
+
 
 
 # Configuracion de proyecto (Pruebas)

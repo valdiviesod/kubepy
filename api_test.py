@@ -4,15 +4,14 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from kubernetes import client, config
 import pymysql
-pymysql.install_as_MySQLdb()chm
-
+pymysql.install_as_MySQLdb()
 
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management' # Usuario y contraseña solo de testing
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management'  # Usuario y contraseña solo de testing
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = '1701046' # Clave secreta solo de testing  
+app.config['JWT_SECRET_KEY'] = '1701046'  # Clave secreta solo de testing
 app.config['MAX_PODS_PER_USER'] = 5
 
 # Initialize extensions
@@ -24,20 +23,17 @@ jwt = JWTManager(app)
 config.load_kube_config()
 v1 = client.CoreV1Api()
 
-
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
     pods = db.relationship('Pod', backref='user', lazy=True)
 
-# Pod model
 class Pod(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     ip = db.Column(db.String(15), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -68,7 +64,6 @@ def login():
         return jsonify(access_token=access_token), 200
     
     return jsonify({"msg": "Invalid username or password"}), 401
-
 
 @app.route('/pods', methods=['GET'])
 @jwt_required()
@@ -156,5 +151,6 @@ def get_pod_terminal(pod_name):
     return jsonify({"msg": "Terminal access details", "pod_ip": db_pod.ip}), 200
 
 if __name__ == '__main__':
-    db.create_all()
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
