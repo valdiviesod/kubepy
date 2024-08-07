@@ -1,1 +1,1 @@
-./bin/python main.py
+./bin/python api_test.py
