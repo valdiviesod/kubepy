@@ -4,6 +4,7 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from kubernetes import client, config
 import pymysql
+import time
 pymysql.install_as_MySQLdb()
 
 app = Flask(__name__)
@@ -72,6 +73,7 @@ def get_pods():
     user_pods = Pod.query.filter_by(user_id=current_user.id).all()
     return jsonify([{"name": pod.name, "ip": pod.ip} for pod in user_pods]), 200
 
+
 @app.route('/pods', methods=['POST'])
 @jwt_required()
 def create_pod():
@@ -107,11 +109,16 @@ def create_pod():
         api_response = v1.create_namespaced_pod(body=pod_manifest, namespace="default")
         
         # Wait for the pod to be running and get its IP
+        start_time = time.time()
+        timeout = 60  # Timeout in seconds
         while True:
             pod = v1.read_namespaced_pod(name=f"{current_user.username}-{pod_name}", namespace="default")
             if pod.status.phase == 'Running' and pod.status.pod_ip:
                 pod_ip = pod.status.pod_ip
                 break
+            if time.time() - start_time > timeout:
+                return jsonify({"msg": "Timeout while waiting for pod to be running"}), 504
+            time.sleep(1)  # Sleep before polling again
         
         db_pod = Pod(name=f"{current_user.username}-{pod_name}", ip=pod_ip, user_id=current_user.id)
         db.session.add(db_pod)
@@ -120,6 +127,7 @@ def create_pod():
         return jsonify({"msg": "Pod created successfully", "name": db_pod.name, "ip": db_pod.ip}), 201
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
+
 
 @app.route('/pods/<pod_name>', methods=['DELETE'])
 @jwt_required()
