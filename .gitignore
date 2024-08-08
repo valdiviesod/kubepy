@@ -167,3 +167,7 @@ cython_debug/
 /include
 pyvenv.cfg
 /venv
+
+#React files
+/node_modules
+/build

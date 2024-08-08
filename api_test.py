@@ -3,11 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from kubernetes import client, config
+from flask_cors import CORS
 import pymysql
 import time
 pymysql.install_as_MySQLdb()
 
 app = Flask(__name__)
+CORS(app)
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management'  # Usuario y contraseña solo de testing
