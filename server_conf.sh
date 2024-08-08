@@ -1,6 +1,11 @@
 # Instalacion y configuracion del servidor kubernetes en Debian 12
 #https://www.marioverhaeg.nl/2024/06/18/install-a-clean-kubernetes-cluster-on-debian-12look-for-the-section-plugins-io-containerd-grpc-v1-cri-containerd-runtimes-runc-options-and-change-systemd/
-apt install sudo git
+apt install sudo git curl -y
+curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+bash nodesource_setup.sh
+apt-get install -y nodejs
+node -v
+
 # Configurar red primero
 # Guia: https://reintech.io/blog/configuring-network-interfaces-debian-12
 
@@ -105,9 +110,10 @@ sudo apt install -y pkg-config libmysqlclient-dev
 sudo apt install -y default-libmysqlclient-dev
 
 git clone https://github.com/valdiviesod/kubepy -b dev
-cd kubepy
-mkdir .kube
-rsync -avh ~/.kube/ ~/kubepy/.kube/
+
+
+
+
 
 
 # Jenkins
