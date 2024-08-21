@@ -5,17 +5,22 @@ from flask_jwt_extended import JWTManager, jwt_required, create_access_token, ge
 from kubernetes import client, config
 from flask_cors import CORS
 import pymysql
+from dotenv import load_dotenv
+import os
 import time
 pymysql.install_as_MySQLdb()
 
 app = Flask(__name__)
 CORS(app)
 
+# Load environment variables
+load_dotenv()
+
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:1701046@localhost/k8s_management'  # Usuario y contraseña solo de testing
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = '1701046'  # Clave secreta solo de testing
-app.config['MAX_PODS_PER_USER'] = 5
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['MAX_PODS_PER_USER'] = int(os.getenv('MAX_PODS_PER_USER', 5))  # Default to 5 if not set
 
 # Initialize extensions
 db = SQLAlchemy(app)
