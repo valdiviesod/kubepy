@@ -1,10 +1,10 @@
 # Instalacion y configuracion del servidor kubernetes en Debian 12
 # Entornos de desarrollo
-apt install sudo git curl jq -y
+sudo apt install sudo git curl jq -y
 curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-bash nodesource_setup.sh
-apt-get install -y nodejs
-apt install python3-pip python3-venv -y 
+sudo bash nodesource_setup.sh
+sudo apt-get install -y nodejs
+sudo apt install python3-pip python3-venv -y 
 sudo apt install -y pkg-config 
 sudo apt install -y default-libmysqlclient-dev
 node -v
@@ -47,6 +47,8 @@ echo \
 apt-get update
 apt-get install docker-ce docker-ce-cli containerd.io -y
 
+docker info
+
 cat <<EOF |  tee /etc/modules-load.d/containerd.conf
 overlay
 br_netfilter
@@ -68,16 +70,19 @@ sysctl --system
 mkdir -p /etc/containerd
 containerd config default | tee /etc/containerd/config.toml
 
-
 systemctl restart containerd
-systemctl status containerd
-
 
 cp /etc/containerd/config.toml /etc/containerd/config.toml-orig
 # Edit the /etc/containerd/config.toml file with this: https://readthedocs.vinczejanos.info/Blog/2021/09/25/Install_Single_Node_Kubernetes_Cluster/
+# [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+# SystemdCgroup = true
 
+VERSION="v1.30.0" # check latest version in /releases page
+wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz
+sudo tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
+rm -f crictl-$VERSION-linux-amd64.tar.gz
 
-# Fix "crictl ps" command error 
+# Fix "crictl ps" command error (opcional)
 cat <<EOF > /etc/crictl.yaml
 runtime-endpoint: unix:///run/containerd/containerd.sock
 image-endpoint: unix:///run/containerd/containerd.sock
@@ -111,28 +116,32 @@ sudo apt-mark hold kubelet kubeadm kubectl
 #Opcional
 sudo systemctl enable --now kubelet
 
+kubeadm version -o yaml
+sudo reboot now 
+
 #Revisar que no haya overlap de IPs
 kubeadm init \
 --cri-socket unix:///var/run/containerd/containerd.sock \
 --service-cidr 10.22.0.0/16 \
 --pod-network-cidr 10.23.0.0/16
 
-
+# Mirar siempre ultima version
 kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
 
 kubectl get pods --all-namespaces -o wide
 
 kubectl get nodes -o wide
 
-kubectl label node singlek8s node-role.kubernetes.io/worker=
+kubectl label node kubepy node-role.kubernetes.io/worker=
 
-kubectl taint nodes kube-test node-role.kubernetes.io/master=:NoSchedule-
-kubectl taint nodes singlek8s node-role.kubernetes.io/control-plane-
+kubectl taint nodes kubepy node-role.kubernetes.io/control-plane-
 
 kubectl edit -n kube-system deployment coredns
 #Change replicas to 1
 
 kubectl -n kube-system get pods
+
+kubectl run nginx-pod --image=nginx --port=80
 
 
 # MySQL
