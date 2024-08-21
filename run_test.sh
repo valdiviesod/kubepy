@@ -1,3 +1,3 @@
 ./bin/python api_test.py &
-cd kubepy_web
-npm start &
+#cd kubepy_web
+#npm start &
