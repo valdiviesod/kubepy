@@ -1,17 +1,19 @@
 # Instalacion y configuracion del servidor kubernetes en Debian 12
-#https://www.marioverhaeg.nl/2024/06/18/install-a-clean-kubernetes-cluster-on-debian-12look-for-the-section-plugins-io-containerd-grpc-v1-cri-containerd-runtimes-runc-options-and-change-systemd/
-apt install sudo git curl -y
+# Entornos de desarrollo
+apt install sudo git curl jq -y
 curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
 bash nodesource_setup.sh
 apt-get install -y nodejs
+apt install python3-pip python3-venv -y 
+sudo apt install -y pkg-config 
+sudo apt install -y default-libmysqlclient-dev
 node -v
 
-# Configurar red primero
+# Configurar red 
 # Guia: https://reintech.io/blog/configuring-network-interfaces-debian-12
 
 # Sudo
 # Guia: https://itslinuxguide.com/add-users-sudoers-file-debian/
-# Ejecutar comandos como root
 
 # Configuracion de Kubernetes
 # Guia: https://www.bentasker.co.uk/posts/documentation/linux/building-a-k8s-cluster-on-debian-12-1-bookworm.html 
@@ -22,72 +24,111 @@ node -v
 # TCP/10259: Kube scheduler (see note below)
 # TCP/30000-32767: Nodeport services
 
-systemctl mask dev-sda3.swap
-sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-reboot
 
-sudo swapoff -a
+#cat <<EOF | tee /etc/modules-load.d/containerd.conf
+#overlay
+#br_netfilter
+#EOF
+
+#modprobe overlay
+#modprobe br_netfilter
+
+#cat <<EOF | tee /etc/sysctl.d/99-kubernetes-k8s.conf
+#net.bridge.bridge-nf-call-iptables = 1
+#net.ipv4.ip_forward = 1
+#net.bridge.bridge-nf-call-ip6tables = 1
+#EOF
+
+#sysctl --system
+
+
+#apt update
+#apt install -y containerd
+
+
+#containerd config default > /etc/containerd/config.toml
+
+
+#nano /etc/containerd/config.toml
+
+#And look for the section [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options], under which there should be an attribute called SystemdCgroup: change this to true so that SystemD cgroups are used:
+
+#[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+#   SystemdCgroup = true
+#
+
+#systemctl enable containerd
+#systemctl restart containerd
+
+swapoff -a
 nano /etc/fstab # comment out the swap line
 
-cat <<EOF | tee /etc/modules-load.d/containerd.conf 
-overlay 
-br_netfilter
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.ipv4.ip_forward = 1
 EOF
 
-sudo modprobe overlay && sudo modprobe br_netfilter
 
-cat <<EOF | tee /etc/sysctl.d/99-kubernetes-k8s.conf
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1 
-net.bridge.bridge-nf-call-ip6tables = 1 
-EOF
 
-apt-get update && apt-get install containerd -y
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-containerd config default | tee /etc/containerd/config.toml >/dev/null 2>&1
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
 
-nano /etc/containerd/config.toml
+sudo apt-get install -y containerd
+sudo systemctl restart containerd
+
+#Modificar /etc/containerd/config.toml
+
+version = 2
+
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    sandbox_image = "registry.k8s.io/pause:3.10"
+    
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/usr/lib/cni"
+      conf_dir = "/etc/cni/net.d"
+    
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      disable_snapshot_annotations = true
+      
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+
+  [plugins."io.containerd.internal.v1.opt"]
+    path = "/var/lib/containerd/opt"
 
 
 # Instalacion de herramientas Kubernetes
 # Guia: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
-apt install gnupg gnupg2 curl software-properties-common -y
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmour -o /etc/apt/trusted.gpg.d/cgoogle.gpg
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt-get update
+# apt-transport-https may be a dummy package; if so, you can skip that package
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+sudo systemctl enable --now kubelet
 
-apt-get update && apt-get install kubelet kubeadm kubectl -y && apt-mark hold kubelet kubeadm kubectl
-sudo sysctl -w net.ipv4.ip_forward=1
-
-
-ln -s /sbin/ebtables /usr/bin/ebtables
-ln -s /sbin/ethtool /usr/bin/ethtool
-ln -s /sbin/tc /usr/bin/tc
-ln -s /sbin/conntrack /usr/bin/conntrack
-ln -s /sbin/iptables /usr/bin/iptables
-
-sudo sysctl -w net.ipv4.ip_forward=1
-
-# Ignorar errores de preflight por paquetes que ya existen
-kubeadm init --pod-network-cidr=192.168.0.0/16
-#sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --ignore-preflight-errors=all --kubelet-extra-args="--max-pods=1000"
-
-# Como usuario SIN PRIVILEGIOS
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-source <(kubectl completion bash)
-echo "source <(kubectl completion bash)" | tee -a ~/.bashrc
+#kubeadm init --control-plane-endpoint=$HOSTNAME
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16
 
 # Configuracion de calico
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
-kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/calico.yaml
 
-kubectl taint nodes <node_name> node-role.kubernetes.io/control-plane-
-
-
-
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 
 # MySQL
 # Ultima version repo mysql
@@ -105,18 +146,9 @@ mysql_secure_installation
 
 
 # Configuracion de proyecto (Pruebas)
-apt install python3-pip python3-venv -y 
-sudo apt install -y pkg-config libmysqlclient-dev
-sudo apt install -y default-libmysqlclient-dev
 
 git clone https://github.com/valdiviesod/kubepy -b dev
 
-
-
-
-
-
-# Jenkins
 
 
 
