@@ -40,7 +40,10 @@ class User(db.Model):
 class Pod(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    image = db.Column(db.String(120), nullable=False)
+    ports = db.Column(db.String(120), nullable=True)
     ip = db.Column(db.String(15), nullable=True)
+    status = db.Column(db.String(50), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 @app.route('/register', methods=['POST'])
@@ -78,7 +81,24 @@ def login():
 def get_pods():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     user_pods = Pod.query.filter_by(user_id=current_user.id).all()
-    return jsonify([{"name": pod.name, "ip": pod.ip} for pod in user_pods]), 200
+    
+    pod_list = []
+    for pod in user_pods:
+        try:
+            k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
+            status = k8s_pod.status.phase
+        except client.exceptions.ApiException:
+            status = "Not Found in Kubernetes"
+
+        pod_list.append({
+            "name": pod.name,
+            "image": pod.image,
+            "ports": pod.ports,
+            "ip": pod.ip,
+            "status": status
+        })
+
+    return jsonify(pod_list), 200
 
 
 @app.route('/pods', methods=['POST'])
@@ -87,6 +107,7 @@ def create_pod():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     pod_name = request.json.get('name')
     image = request.json.get('image')
+    ports = request.json.get('ports')
     
     if not pod_name or not image:
         return jsonify({"msg": "Missing pod name or image"}), 400
@@ -108,7 +129,8 @@ def create_pod():
             "spec": {
                 "containers": [{
                     "name": pod_name,
-                    "image": image
+                    "image": image,
+                    "ports": [{"containerPort": int(port)} for port in ports.split(',')] if ports else []
                 }]
             }
         }
@@ -122,16 +144,31 @@ def create_pod():
             pod = v1.read_namespaced_pod(name=f"{current_user.username}-{pod_name}", namespace="default")
             if pod.status.phase == 'Running' and pod.status.pod_ip:
                 pod_ip = pod.status.pod_ip
+                status = pod.status.phase
                 break
             if time.time() - start_time > timeout:
                 return jsonify({"msg": "Timeout while waiting for pod to be running"}), 504
             time.sleep(1)  # Sleep before polling again
         
-        db_pod = Pod(name=f"{current_user.username}-{pod_name}", ip=pod_ip, user_id=current_user.id)
+        db_pod = Pod(
+            name=f"{current_user.username}-{pod_name}",
+            image=image,
+            ports=ports,
+            ip=pod_ip,
+            status=status,
+            user_id=current_user.id
+        )
         db.session.add(db_pod)
         db.session.commit()
         
-        return jsonify({"msg": "Pod created successfully", "name": db_pod.name, "ip": db_pod.ip}), 201
+        return jsonify({
+            "msg": "Pod created successfully",
+            "name": db_pod.name,
+            "image": db_pod.image,
+            "ports": db_pod.ports,
+            "ip": db_pod.ip,
+            "status": db_pod.status
+        }), 201
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
 
@@ -164,6 +201,17 @@ def get_pod_terminal(pod_name):
     
     # Return terminal access (TO DO)
     return jsonify({"msg": "Terminal access details", "pod_ip": db_pod.ip}), 200
+
+def update_pod_status():
+    pods = Pod.query.all()
+    for pod in pods:
+        try:
+            k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
+            pod.status = k8s_pod.status.phase
+            pod.ip = k8s_pod.status.pod_ip
+        except client.exceptions.ApiException:
+            pod.status = "Not Found in Kubernetes"
+    db.session.commit()
 
 if __name__ == '__main__':
     with app.app_context():
