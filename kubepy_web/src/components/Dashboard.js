@@ -1,72 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import './Dashboard.css';  // Crea un archivo CSS separado para estilos
+import './Dashboard.css';
 
 function Dashboard({ username, onLogout }) {
-  const [containers, setContainers] = useState([]);
+  const [pods, setPods] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    // Simulación de API
-    const mockContainers = [
-      { id: 1, name: 'dockercontext', image: '-', status: 'Running', ports: '-', started: '2 minutes ago' },
-      { id: 2, name: 'mysql-db', image: 'mysql:5.7', status: 'Stopped', ports: '3306', started: '1 hour ago' },
-      { id: 3, name: 'nginx-server', image: 'nginx:latest', status: 'Running', ports: '80', started: '30 minutes ago' },
+    // Simulated API call
+    const mockPods = [
+      { id: 1, name: 'Nginx Proyecto 1', image: 'nginxlatest', ports: '80,443', podIp: '192.168.0.20', status: 'Active' },
+      { id: 2, name: 'Pod 2', image: 'image2', ports: '8080', podIp: '192.168.0.21', status: 'Inactive' },
+      { id: 3, name: 'Pod 3', image: 'image3', ports: '3000', podIp: '192.168.0.22', status: 'Active' },
     ];
-    setContainers(mockContainers);
+    setPods(mockPods);
   }, []);
 
-  const filteredContainers = containers.filter(container =>
-    container.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPods = pods.filter(pod =>
+    pod.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <h1>Welcome, {username}</h1>
-        <button className="logout-button" onClick={onLogout}>Logout</button>
+        <div className="logo">UPB</div>
+        <h1>Hello, User 👋</h1>
       </div>
-      <div className="dashboard-search">
-        <input
-          type="text"
-          placeholder="Search containers..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <span>Showing {filteredContainers.length} items</span>
-      </div>
-      <table className="dashboard-table">
-        <thead>
-          <tr>
-            <th>NAME</th>
-            <th>IMAGE</th>
-            <th>STATUS</th>
-            <th>PORTS</th>
-            <th>STARTED</th>
-            <th>ACTIONS</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredContainers.map((container) => (
-            <tr key={container.id}>
-              <td>{container.name}</td>
-              <td>{container.image}</td>
-              <td>
-                <span className={`status-badge ${container.status === 'Running' ? 'running' : 'stopped'}`}>
-                  {container.status}
-                </span>
-              </td>
-              <td>{container.ports}</td>
-              <td>{container.started}</td>
-              <td>
-                <button className="action-button start-stop-button">
-                  {container.status === 'Running' ? 'Stop' : 'Start'}
-                </button>
-                <button className="action-button delete-button">Delete</button>
-              </td>
+      <div className="dashboard-content">
+        <h2>My Pods</h2>
+        <div className="pod-controls">
+          <button className="new-pod-button">New Pod</button>
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <select>
+            <option>Sort by: Latest</option>
+          </select>
+        </div>
+        <table className="pod-table">
+          <thead>
+            <tr>
+              <th>Pod Name</th>
+              <th>Image</th>
+              <th>Ports</th>
+              <th>Pod IP</th>
+              <th>Modify</th>
+              <th>Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredPods.map((pod) => (
+              <tr key={pod.id}>
+                <td>{pod.name}</td>
+                <td>{pod.image}</td>
+                <td>{pod.ports}</td>
+                <td>{pod.podIp}</td>
+                <td>
+                  <button className="icon-button settings-button"></button>
+                  <button className="icon-button delete-button"></button>
+                </td>
+                <td>
+                  <span className={`status-badge ${pod.status.toLowerCase()}`}>
+                    {pod.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="pagination">
+          <span>Showing data 1 to 8 of 256K entries</span>
+          <div className="page-numbers">
+            <button className="page-button active">1</button>
+            <button className="page-button">2</button>
+            <button className="page-button">3</button>
+            <button className="page-button">4</button>
+            <span>...</span>
+            <button className="page-button">40</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
