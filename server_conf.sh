@@ -120,10 +120,12 @@ kubeadm version -o yaml
 sudo reboot now 
 
 #Revisar que no haya overlap de IPs
-kubeadm init \
---cri-socket unix:///var/run/containerd/containerd.sock \
---service-cidr 10.22.0.0/16 \
---pod-network-cidr 10.23.0.0/16
+#kubeadm init \
+#--cri-socket unix:///var/run/containerd/containerd.sock \
+#--service-cidr 10.22.0.0/16 \
+#--pod-network-cidr 10.23.0.0/16
+
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
 
 # Mirar siempre ultima version
 kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
