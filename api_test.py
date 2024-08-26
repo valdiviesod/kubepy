@@ -213,6 +213,21 @@ def update_pod_status():
             pod.status = "Not Found in Kubernetes"
     db.session.commit()
 
+@app.route('/check', methods=['GET'])
+def check_k8s_connection():
+    try:
+        # Intenta listar los pods en el namespace "default"
+        pods = v1.list_namespaced_pod(namespace="default")
+        pod_names = [pod.metadata.name for pod in pods.items]
+        
+        return jsonify({
+            "msg": "Kubernetes connection successful",
+            "pods": pod_names
+        }), 200
+    except Exception as e:
+        return jsonify({"msg": f"Error connecting to Kubernetes: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
