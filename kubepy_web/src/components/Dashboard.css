@@ -8,8 +8,48 @@ body {
 }
 
 .dashboard-container {
-  max-width: 1200px;
-  margin: 0 auto;
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 200px;
+  background-color: #ffffff;
+  padding: 20px;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  color: #ff3b30;
+  margin-bottom: 30px;
+}
+
+.sidebar nav ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebar nav li {
+  padding: 10px;
+  margin-bottom: 5px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar nav li.active {
+  background-color: #f5f5f7;
+}
+
+.sidebar nav li .icon {
+  margin-right: 10px;
+}
+
+.main-content {
+  flex-grow: 1;
   padding: 20px;
 }
 
@@ -20,10 +60,14 @@ body {
   margin-bottom: 30px;
 }
 
-.logo {
-  font-size: 24px;
-  font-weight: bold;
-  color: #ff3b30;
+.logout-button {
+  background-color: #ff3b30;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
 .dashboard-content {
@@ -96,14 +140,7 @@ input[type="text"], select {
   cursor: pointer;
   padding: 5px;
   margin-right: 5px;
-}
-
-.settings-button::before {
-  content: '⚙️';
-}
-
-.delete-button::before {
-  content: '🗑️';
+  font-size: 18px;
 }
 
 .status-badge {
@@ -144,6 +181,6 @@ input[type="text"], select {
 }
 
 .page-button.active {
-  background-color: #007aff;
+  background-color: #1e1f1f;
   color: white;
 }
