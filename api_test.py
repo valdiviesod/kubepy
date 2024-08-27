@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from kubernetes import client, config
+from kubernetes.stream import stream
 from flask_cors import CORS
 import pymysql
 from dotenv import load_dotenv
@@ -227,6 +228,34 @@ def check_k8s_connection():
     except Exception as e:
         return jsonify({"msg": f"Error connecting to Kubernetes: {str(e)}"}), 500
 
+@app.route('/pods/<pod_name>/exec', methods=['POST'])
+@jwt_required()
+def exec_in_pod(pod_name):
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
+    
+    if not db_pod:
+        return jsonify({"msg": "Pod not found or not owned by user"}), 404
+    
+    command = request.json.get('command')
+    
+    if not command:
+        return jsonify({"msg": "Missing command"}), 400
+    
+    try:
+        exec_command = ['/bin/sh', '-c', command]
+        resp = stream(
+            v1.connect_get_namespaced_pod_exec,
+            name=db_pod.name,
+            namespace='default',
+            command=exec_command,
+            stderr=True, stdin=False,
+            stdout=True, tty=False
+        )
+        
+        return jsonify({"output": resp}), 200
+    except Exception as e:
+        return jsonify({"msg": f"Error executing command: {str(e)}"}), 500
 
 if __name__ == '__main__':
     with app.app_context():
