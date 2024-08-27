@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
+import PodConsole from './components/PodConsole';  // Importa el componente de la consola
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -19,7 +20,12 @@ function App() {
   };
 
   if (isLoggedIn) {
-    return <Dashboard username={username} onLogout={handleLogout} />;
+    return (
+      <div>
+        <Dashboard username={username} onLogout={handleLogout} />
+        <PodConsole />  {/* Aquí se incluye el componente de la consola */}
+      </div>
+    );
   }
 
   return (
