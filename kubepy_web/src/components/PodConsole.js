@@ -1,96 +1,60 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import './PodConsole.css';
 
-const PodConsole = () => {
-    const [command, setCommand] = useState('');
-    const [output, setOutput] = useState('');
-    const [history, setHistory] = useState([]);
+function PodConsole({ podName }) {
+  const [command, setCommand] = useState('');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    const handleCommandChange = (e) => {
-        setCommand(e.target.value);
-    };
+  const handleCommandChange = (e) => {
+    setCommand(e.target.value);
+  };
 
-    const handleCommandSubmit = async (e) => {
-        e.preventDefault();
+  const handleExecuteCommand = async () => {
+    setLoading(true);
+    setOutput('');
+    
+    // Obtén el token del localStorage
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`http://207.248.81.113:5000/pods/${podName}/exec`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Incluye el token en los encabezados
+        },
+        body: JSON.stringify({ command }),
+      });
 
-        if (command.trim() === '') return;
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
 
-        try {
-            const response = await axios.post('http://207.248.81.113:5000/pods/test1/exec', {
-                command
-            });
+      const data = await response.json();
+      setOutput(data.output || 'No output received');
+    } catch (error) {
+      setOutput(`Error executing command: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            // Update output and history
-            setHistory([...history, `> ${command}`, response.data.output]);
-            setOutput(response.data.output);
-        } catch (error) {
-            setHistory([...history, `> ${command}`, `Error: ${error.response ? error.response.data.msg : 'Server Error'}`]);
-        }
-
-        // Clear the command input
-        setCommand('');
-    };
-
-    return (
-        <div style={styles.consoleContainer}>
-            <div style={styles.consoleOutput}>
-                {history.map((line, index) => (
-                    <div key={index} style={styles.consoleLine}>{line}</div>
-                ))}
-            </div>
-            <form onSubmit={handleCommandSubmit} style={styles.consoleForm}>
-                <span style={styles.promptSymbol}>$</span>
-                <input
-                    type="text"
-                    value={command}
-                    onChange={handleCommandChange}
-                    style={styles.consoleInput}
-                    placeholder="Enter command"
-                    autoFocus
-                />
-            </form>
-        </div>
-    );
-};
-
-const styles = {
-    consoleContainer: {
-        backgroundColor: '#000',
-        color: '#fff',
-        fontFamily: 'monospace',
-        padding: '10px',
-        borderRadius: '5px',
-        width: '100%',
-        maxWidth: '600px',
-        margin: '0 auto',
-    },
-    consoleOutput: {
-        height: '300px',
-        overflowY: 'auto',
-        marginBottom: '10px',
-        padding: '10px',
-        backgroundColor: '#111',
-        borderRadius: '5px',
-    },
-    consoleForm: {
-        display: 'flex',
-        alignItems: 'center',
-    },
-    promptSymbol: {
-        marginRight: '10px',
-    },
-    consoleInput: {
-        flexGrow: 1,
-        backgroundColor: '#000',
-        color: '#fff',
-        border: 'none',
-        outline: 'none',
-        fontFamily: 'monospace',
-        fontSize: '16px',
-    },
-    consoleLine: {
-        marginBottom: '5px',
-    },
-};
+  return (
+    <div className="pod-console">
+      <h2>Pod Terminal - {podName}</h2>
+      <textarea
+        className="command-input"
+        value={command}
+        onChange={handleCommandChange}
+        placeholder="Enter command here..."
+      />
+      <button className="execute-button" onClick={handleExecuteCommand} disabled={loading}>
+        {loading ? 'Executing...' : 'Execute'}
+      </button>
+      <pre className="output-console">{output}</pre>
+    </div>
+  );
+}
 
 export default PodConsole;

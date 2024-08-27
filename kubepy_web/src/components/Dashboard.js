@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
+import PodConsole from './PodConsole';
 
 function Dashboard({ onLogout }) {
   const [pods, setPods] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPod, setSelectedPod] = useState(null);
 
   useEffect(() => {
     // Simulated API call
     const mockPods = [
-      { id: 1, name: 'Nginx Proyecto 1', image: 'nginxlatest', ports: '80,443', podIp: '192.168.0.20', status: 'Inactive' },
-      { id: 2, name: 'Pod 2', image: 'image2', ports: '8080', podIp: '192.168.0.21', status: 'Inactive' },
+      { id: 1, name: 'test1', image: 'nginxlatest', ports: '80,443', podIp: '192.168.0.20', status: 'Inactive' },
+      { id: 2, name: 'test2', image: 'image2', ports: '8080', podIp: '192.168.0.21', status: 'Inactive' },
       { id: 3, name: 'Pod 3', image: 'image3', ports: '3000', podIp: '192.168.0.22', status: 'Active' },
     ];
     setPods(mockPods);
@@ -18,6 +20,14 @@ function Dashboard({ onLogout }) {
   const filteredPods = pods.filter(pod => 
     pod.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleOpenTerminal = (podName) => {
+    setSelectedPod(podName);
+  };
+
+  const handleCloseTerminal = () => {
+    setSelectedPod(null);
+  };
 
   return (
     <div className="dashboard-container">
@@ -60,6 +70,7 @@ function Dashboard({ onLogout }) {
                 <th>Pod IP</th>
                 <th>Modify</th>
                 <th>Status</th>
+                <th>Terminal</th>
               </tr>
             </thead>
             <tbody>
@@ -78,6 +89,9 @@ function Dashboard({ onLogout }) {
                       {pod.status}
                     </span>
                   </td>
+                  <td>
+                    <button className="terminal-button" onClick={() => handleOpenTerminal(pod.name)}>🖥️ Open Terminal</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -95,6 +109,14 @@ function Dashboard({ onLogout }) {
           </div>
         </div>
       </main>
+      {selectedPod && (
+        <div className="pod-console-overlay">
+          <div className="pod-console-container">
+            <button className="close-console-button" onClick={handleCloseTerminal}>✖ Close</button>
+            <PodConsole podName={selectedPod} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

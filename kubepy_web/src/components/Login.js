@@ -3,17 +3,38 @@ import React, { useState } from 'react';
 function Login({ onLoginSuccess, onRegisterClick }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically make an API call to verify credentials
-    // For now, we'll just simulate a successful login
-    onLoginSuccess(username);
+    setError('');
+
+    try {
+      const response = await fetch('http://207.248.81.113:5000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.access_token); // Guarda el token en localStorage
+        onLoginSuccess(username);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.msg || 'Error logging in');
+      }
+    } catch (err) {
+      setError('Error connecting to the server');
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
       <h2>Login</h2>
+      {error && <p style={errorStyle}>{error}</p>}
       <input
         type="text"
         placeholder="Username"
@@ -69,6 +90,11 @@ const linkStyle = {
   color: '#4CAF50',
   cursor: 'pointer',
   textDecoration: 'underline',
+};
+
+const errorStyle = {
+  color: 'red',
+  marginBottom: '10px',
 };
 
 export default Login;
