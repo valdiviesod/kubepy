@@ -139,7 +139,7 @@ def create_pod():
         
         # Wait for the pod to be running and get its IP
         start_time = time.time()
-        timeout = 60  # Timeout in seconds
+        timeout = 300  # Timeout in seconds
         while True:
             pod = v1.read_namespaced_pod(name=f"{current_user.username}-{pod_name}", namespace="default")
             if pod.status.phase == 'Running' and pod.status.pod_ip:
