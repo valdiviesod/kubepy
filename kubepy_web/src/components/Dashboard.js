@@ -8,7 +8,6 @@ function Dashboard({ onLogout }) {
   const [selectedPod, setSelectedPod] = useState(null);
 
   useEffect(() => {
-    // Simulated API call
     const mockPods = [
       { id: 1, name: 'test1', image: 'nginxlatest', ports: '80,443', podIp: '192.168.0.20', status: 'Inactive' },
       { id: 2, name: 'test2', image: 'image2', ports: '8080', podIp: '192.168.0.21', status: 'Inactive' },
@@ -26,7 +25,7 @@ function Dashboard({ onLogout }) {
   };
 
   const handleCloseTerminal = () => {
-    setSelectedPod(null);
+    setSelectedPod(null); // Cierra el terminal estableciendo el pod seleccionado a null
   };
 
   return (
@@ -57,9 +56,6 @@ function Dashboard({ onLogout }) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <select>
-              <option value="latest">Sort by: Latest</option>
-            </select>
           </div>
           <table className="pod-table">
             <thead>
@@ -97,7 +93,6 @@ function Dashboard({ onLogout }) {
             </tbody>
           </table>
           <div className="pagination">
-            <span>Showing data 1 to 8 of 256K entries</span>
             <div className="page-numbers">
               <button className="page-button active">1</button>
               <button className="page-button">2</button>
@@ -110,12 +105,7 @@ function Dashboard({ onLogout }) {
         </div>
       </main>
       {selectedPod && (
-        <div className="pod-console-overlay">
-          <div className="pod-console-container">
-            <button className="close-console-button" onClick={handleCloseTerminal}>✖ Close</button>
-            <PodConsole podName={selectedPod} />
-          </div>
-        </div>
+        <PodConsole podName={selectedPod} onClose={handleCloseTerminal} />
       )}
     </div>
   );
