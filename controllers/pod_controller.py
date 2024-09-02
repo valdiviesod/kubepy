@@ -1,84 +1,15 @@
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask import request, jsonify, current_app
+from flask_jwt_extended import get_jwt_identity
 from kubernetes import client, config
 from kubernetes.stream import stream
-from flask_cors import CORS
-import pymysql
-from dotenv import load_dotenv
-import os
+from model.user import User
+from model.pod import Pod
+from database.db import db
 import time
-pymysql.install_as_MySQLdb()
 
-app = Flask(__name__)
-CORS(app)
-
-# Load environment variables
-load_dotenv()
-
-# Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-app.config['MAX_PODS_PER_USER'] = int(os.getenv('MAX_PODS_PER_USER', 5))  # Default to 5 if not set
-
-# Initialize extensions
-db = SQLAlchemy(app)
-bcrypt = Bcrypt(app)
-jwt = JWTManager(app)
-
-# Load Kubernetes configuration
 config.load_kube_config()
 v1 = client.CoreV1Api()
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
-    pods = db.relationship('Pod', backref='user', lazy=True)
-
-class Pod(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    image = db.Column(db.String(120), nullable=False)
-    ports = db.Column(db.String(120), nullable=True)
-    ip = db.Column(db.String(15), nullable=True)
-    status = db.Column(db.String(50), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-@app.route('/register', methods=['POST'])
-def register():
-    username = request.json.get('username', None)
-    password = request.json.get('password', None)
-    
-    if not username or not password:
-        return jsonify({"msg": "Missing username or password"}), 400
-    
-    if User.query.filter_by(username=username).first():
-        return jsonify({"msg": "Username already exists"}), 400
-    
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(username=username, password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    
-    return jsonify({"msg": "User created successfully"}), 201
-
-@app.route('/login', methods=['POST'])
-def login():
-    username = request.json.get('username', None)
-    password = request.json.get('password', None)
-    
-    user = User.query.filter_by(username=username).first()
-    if user and bcrypt.check_password_hash(user.password, password):
-        access_token = create_access_token(identity=username)
-        return jsonify(access_token=access_token), 200
-    
-    return jsonify({"msg": "Invalid username or password"}), 401
-
-@app.route('/pods', methods=['GET'])
-@jwt_required()
 def get_pods():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     user_pods = Pod.query.filter_by(user_id=current_user.id).all()
@@ -100,9 +31,6 @@ def get_pods():
 
     return jsonify(pod_list), 200
 
-
-@app.route('/pods', methods=['POST'])
-@jwt_required()
 def create_pod():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     pod_name = request.json.get('name')
@@ -113,8 +41,8 @@ def create_pod():
         return jsonify({"msg": "Missing pod name or image"}), 400
     
     user_pod_count = Pod.query.filter_by(user_id=current_user.id).count()
-    if user_pod_count >= app.config['MAX_PODS_PER_USER']:
-        return jsonify({"msg": f"Maximum number of pods ({app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
+    if user_pod_count >= current_app.config['MAX_PODS_PER_USER']:
+        return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
     try:
         pod_manifest = {
@@ -172,9 +100,6 @@ def create_pod():
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
 
-
-@app.route('/pods/<pod_name>', methods=['DELETE'])
-@jwt_required()
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
@@ -190,8 +115,6 @@ def delete_pod(pod_name):
     except Exception as e:
         return jsonify({"msg": f"Error deleting pod: {str(e)}"}), 500
 
-@app.route('/pods/<pod_name>/terminal', methods=['GET'])
-@jwt_required()
 def get_pod_terminal(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
@@ -202,18 +125,6 @@ def get_pod_terminal(pod_name):
     # Return terminal access (TO DO)
     return jsonify({"msg": "Terminal access details", "pod_ip": db_pod.ip}), 200
 
-def update_pod_status():
-    pods = Pod.query.all()
-    for pod in pods:
-        try:
-            k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
-            pod.status = k8s_pod.status.phase
-            pod.ip = k8s_pod.status.pod_ip
-        except client.exceptions.ApiException:
-            pod.status = "Not Found in Kubernetes"
-    db.session.commit()
-
-@app.route('/check', methods=['GET'])
 def check_k8s_connection():
     try:
         # Intenta listar los pods en el namespace "default"
@@ -227,8 +138,6 @@ def check_k8s_connection():
     except Exception as e:
         return jsonify({"msg": f"Error connecting to Kubernetes: {str(e)}"}), 500
 
-@app.route('/pods/<pod_name>/exec', methods=['POST'])
-@jwt_required()
 def exec_in_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
@@ -255,8 +164,3 @@ def exec_in_pod(pod_name):
         return jsonify({"output": resp}), 200
     except Exception as e:
         return jsonify({"msg": f"Error executing command: {str(e)}"}), 500
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(host='0.0.0.0', debug=True)

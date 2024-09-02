@@ -9,9 +9,9 @@ function Dashboard({ onLogout }) {
 
   useEffect(() => {
     const mockPods = [
-      { id: 1, name: 'test1', image: 'nginxlatest', ports: '80,443', podIp: '192.168.0.20', status: 'Inactive' },
-      { id: 2, name: 'test2', image: 'image2', ports: '8080', podIp: '192.168.0.21', status: 'Inactive' },
-      { id: 3, name: 'Pod 3', image: 'image3', ports: '3000', podIp: '192.168.0.22', status: 'Active' },
+      { id: 1, name: 'test1', image: 'nginxlatest', ports: '80,443', status: 'Inactive' },
+      { id: 2, name: 'test2', image: 'image2', ports: '8080', status: 'Inactive' },
+      { id: 3, name: 'Pod 3', image: 'image3', ports: '3000', status: 'Active' },
     ];
     setPods(mockPods);
   }, []);
@@ -25,7 +25,7 @@ function Dashboard({ onLogout }) {
   };
 
   const handleCloseTerminal = () => {
-    setSelectedPod(null); // Cierra el terminal estableciendo el pod seleccionado a null
+    setSelectedPod(null); 
   };
 
   return (
