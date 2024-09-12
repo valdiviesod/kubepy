@@ -143,7 +143,39 @@ kubectl edit -n kube-system deployment coredns
 
 kubectl -n kube-system get pods
 
-kubectl run nginx-pod --image=nginx --port=80
+#kubectl run nginx-test-pod --image=nginx --port=80
+# Install Nginx Ingress Controller
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
+
+# Wait for Nginx Ingress Controller to be ready
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
+
+# Create a namespace for your application (if not using default)
+kubectl create namespace myapp
+
+# Create a ConfigMap for Nginx configuration (optional, for custom settings)
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+data:
+  proxy-body-size: "10m"
+  proxy-connect-timeout: "10"
+EOF
+
+# Update Nginx Ingress Controller deployment to use the ConfigMap (optional)
+kubectl set env deployment/ingress-nginx-controller -n ingress-nginx --from=configmap/nginx-configuration
+
+# Verify Nginx Ingress Controller is running
+kubectl get pods -n ingress-nginx
+
+# Get the external IP of the Nginx Ingress Controller (if using a cloud provider)
+kubectl get service ingress-nginx-controller -n ingress-nginx
 
 
 # MySQL

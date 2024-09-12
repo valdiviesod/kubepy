@@ -9,6 +9,7 @@ import time
 
 config.load_kube_config()
 v1 = client.CoreV1Api()
+networking_v1 = client.NetworkingV1Api()
 
 def get_pods():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
@@ -26,7 +27,8 @@ def get_pods():
             "name": pod.name,
             "image": pod.image,
             "ports": pod.ports,
-            "status": status
+            "status": status,
+            "hostname": f"{pod.name}.{current_app.config['DOMAIN']}"
         })
 
     return jsonify(pod_list), 200
@@ -45,13 +47,15 @@ def create_pod():
         return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
     try:
+        # Create the pod
         pod_manifest = {
             "apiVersion": "v1",
             "kind": "Pod",
             "metadata": {
                 "name": f"{current_user.username}-{pod_name}",
                 "labels": {
-                    "user": current_user.username
+                    "user": current_user.username,
+                    "app": pod_name
                 }
             },
             "spec": {
@@ -78,6 +82,62 @@ def create_pod():
                 return jsonify({"msg": "Timeout while waiting for pod to be running"}), 504
             time.sleep(1)  # Sleep before polling again
         
+        # Create a service for the pod
+        service_manifest = {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "name": f"{current_user.username}-{pod_name}-service"
+            },
+            "spec": {
+                "selector": {
+                    "app": pod_name
+                },
+                "ports": [
+                    {"port": int(port), "targetPort": int(port)}
+                    for port in ports.split(',')
+                ] if ports else [{"port": 80, "targetPort": 80}]
+            }
+        }
+        v1.create_namespaced_service(body=service_manifest, namespace="default")
+
+        # Create an Ingress resource
+        ingress_manifest = {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "Ingress",
+            "metadata": {
+                "name": f"{current_user.username}-{pod_name}-ingress",
+                "annotations": {
+                    "kubernetes.io/ingress.class": "nginx"
+                }
+            },
+            "spec": {
+                "rules": [
+                    {
+                        "host": f"{current_user.username}-{pod_name}.{current_app.config['DOMAIN']}",
+                        "http": {
+                            "paths": [
+                                {
+                                    "path": "/",
+                                    "pathType": "Prefix",
+                                    "backend": {
+                                        "service": {
+                                            "name": f"{current_user.username}-{pod_name}-service",
+                                            "port": {
+                                                "number": int(ports.split(',')[0]) if ports else 80
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+        networking_v1.create_namespaced_ingress(body=ingress_manifest, namespace="default")
+
+        # Save pod information to database
         db_pod = Pod(
             name=f"{current_user.username}-{pod_name}",
             image=image,
@@ -95,7 +155,8 @@ def create_pod():
             "image": db_pod.image,
             "ports": db_pod.ports,
             "ip": db_pod.ip,
-            "status": db_pod.status
+            "status": db_pod.status,
+            "hostname": f"{current_user.username}-{pod_name}.{current_app.config['DOMAIN']}"
         }), 201
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
