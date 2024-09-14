@@ -18,7 +18,7 @@ CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-app.config['MAX_PODS_PER_USER'] = int(os.getenv('MAX_PODS_PER_USER', 15))
+#app.config['MAX_PODS_PER_USER'] = int(os.getenv('MAX_PODS_PER_USER', 15))
 app.config['DOMAIN'] = os.getenv('DOMAIN', 'kubepy.com')  
 
 
