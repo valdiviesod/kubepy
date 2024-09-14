@@ -52,9 +52,9 @@ def create_pod():
 
     pod_name = f"{current_user.username}-{name}"
 
+    # Ensure ports is a list of integers
     try:
-        # Convert ports to int and filter out invalid entries
-        ports = [int(port) for port in ports if port.isdigit()]
+        ports = [int(port.strip()) for port in ports.split(',') if port.strip().isdigit()]
     except ValueError:
         return jsonify({"msg": "Invalid port value"}), 400
 
@@ -126,11 +126,14 @@ def create_pod():
     db.session.add(new_pod)
     db.session.commit()
 
+    # Set the node port for the response (use the first port for node port)
+    node_port = service_ports[0].node_port if service_ports else None
+
     return jsonify({
-        "msg": "Pod created successfully",
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
+
 
 
 def delete_pod(pod_name):
