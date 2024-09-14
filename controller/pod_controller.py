@@ -57,15 +57,15 @@ def create_pod():
     data = request.get_json()
     name = data.get('name')
     image = data.get('image')
-    ports = data.get('ports')  
+    ports = data.get('ports')  # Lista de puertos, e.g., [80, 8080]
     
     if not name or not image or not ports:
         return jsonify({'msg': 'Name, image, and ports are required'}), 400
 
-    # Crear el pod
-    pod_manifest = {
-        "apiVersion": "v1",
-        "kind": "Pod",
+    # Crear el Deployment
+    deployment_manifest = {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
         "metadata": {
             "name": name,
             "labels": {
@@ -73,24 +73,38 @@ def create_pod():
             }
         },
         "spec": {
-            "containers": [
-                {
-                    "name": name,
-                    "image": image,
-                    "ports": [{"containerPort": port} for port in ports]
+            "selector": {
+                "matchLabels": {
+                    "app": name
                 }
-            ]
+            },
+            "template": {
+                "metadata": {
+                    "labels": {
+                        "app": name
+                    }
+                },
+                "spec": {
+                    "containers": [
+                        {
+                            "name": name,
+                            "image": image,
+                            "ports": [{"containerPort": port} for port in ports]
+                        }
+                    ]
+                }
+            }
         }
     }
 
     try:
-        v1.create_namespaced_pod(namespace="default", body=pod_manifest)
+        apps_v1.create_namespaced_deployment(namespace="default", body=deployment_manifest)
     except client.exceptions.ApiException as e:
-        return jsonify({'msg': f'Error creating pod: {e}'}), 500
+        return jsonify({'msg': f'Error creating deployment: {e}'}), 500
 
-    # Crear el servicio de tipo NodePort
+    # Crear el servicio NodePort
     node_port = random.randint(30000, 32767)
-
+    
     service_manifest = {
         "apiVersion": "v1",
         "kind": "Service",
@@ -104,9 +118,9 @@ def create_pod():
             },
             "ports": [
                 {
-                    "port": 80,
-                    "targetPort": ports[0],  # Usar el primer puerto del contenedor
-                    "nodePort": node_port
+                    "port": 80,  # Puerto expuesto
+                    "targetPort": ports[0],  # Primer puerto del contenedor
+                    "nodePort": node_port  # Puerto NodePort dinámico
                 }
             ]
         }
@@ -135,11 +149,12 @@ def create_pod():
     # Devolver la información al usuario
     return jsonify({
         'msg': 'Pod and service created successfully',
+        'podName': name,
+        'serviceName': f"{name}-service",
         'nodePort': node_port,
         'internalIP': internal_ip,
-        'accessURL': f'http://cca.bucaramanga.upb.edu.co}:{node_port}'
+        'accessURL': f'http://{internal_ip}:{node_port}'
     }), 201
-
 
 
 def delete_pod(pod_name):
