@@ -168,12 +168,6 @@ data:
   proxy-connect-timeout: "10"
 EOF
 
-# Update Nginx Ingress Controller deployment to use the ConfigMap (optional)
-kubectl set env deployment/ingress-nginx-controller -n ingress-nginx --from=configmap/nginx-configuration
-
-# Verify Nginx Ingress Controller is running
-kubectl get pods -n ingress-nginx
-
 
 # MySQL
 # Ultima version repo mysql
