@@ -126,7 +126,7 @@ def create_pod():
         db.session.commit()
 
         # Get the dynamically assigned NodePort
-        node_port = created_service.spec.ports[0].node_port
+        node_port = created_service.spec.ports[0].node_port if created_service.spec.ports else None
 
         # Get a Node IP to expose the service
         node_list = v1.list_node()
@@ -135,19 +135,26 @@ def create_pod():
              if addr.type == "ExternalIP"), "localhost"
         )
 
+        # Check if node_ip and node_port are valid
+        if not node_ip:
+            node_ip = "localhost"
+        if not node_port:
+            return jsonify({"message": "Error: NodePort not assigned"}), 500
+
         # Return information for accessing the pod
         return jsonify({
             "message": "Pod created successfully",
             "name": pod_name,
             "image": image,
             "node_ip": node_ip,
-            "node_port": node_port,  # The dynamically assigned NodePort for external access
+            "node_port": node_port  # The dynamically assigned NodePort for external access
         }), 201
 
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Kubernetes API error: {e.reason}"}), e.status
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
+
 
     
 
