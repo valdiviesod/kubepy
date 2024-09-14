@@ -50,113 +50,97 @@ def get_pods():
 
 
 def create_pod():
-    try:
-        current_user = User.query.filter_by(username=get_jwt_identity()).first()
-
-        if not current_user:
-            return jsonify({"message": "User not found"}), 404
-
-        # Get the request data for the pod creation
-        pod_name = request.json.get("name")
-        image = request.json.get("image", "nginx")
-        ports = request.json.get("ports", [80])
-
-        if not pod_name:
-            return jsonify({"message": "Pod name is required"}), 400
-
-        # Create a Kubernetes deployment for the pod
-        deployment = client.V1Deployment(
-            api_version="apps/v1",
-            kind="Deployment",
-            metadata=client.V1ObjectMeta(name=pod_name),
-            spec=client.V1DeploymentSpec(
-                selector=client.V1LabelSelector(
-                    match_labels={"app": pod_name}
-                ),
-                template=client.V1PodTemplateSpec(
-                    metadata=client.V1ObjectMeta(labels={"app": pod_name}),
-                    spec=client.V1PodSpec(
-                        containers=[
-                            client.V1Container(
-                                name="web-server",
-                                image=image,
-                                ports=[
-                                    client.V1ContainerPort(container_port=int(port))
-                                    for port in ports
-                                ],
-                            )
-                        ]
-                    ),
-                ),
-            ),
-        )
-
-        # Create the deployment in Kubernetes
-        apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
-
-        # Create a NodePort service without specifying the nodePort, allowing Kubernetes to assign a dynamic NodePort
-        service = client.V1Service(
-            api_version="v1",
-            kind="Service",
-            metadata=client.V1ObjectMeta(name=f"{pod_name}-service"),
-            spec=client.V1ServiceSpec(
-                selector={"app": pod_name},
-                type="NodePort",
-                ports=[
-                    client.V1ServicePort(
-                        port=80,
-                        target_port=80,
-                    )
-                ],
-            ),
-        )
-
-        # Create the service in Kubernetes
-        created_service = v1.create_namespaced_service(namespace="default", body=service)
-
-        # Add the pod to the database
-        new_pod = Pod(
-            name=pod_name,
-            image=image,
-            ports=ports,
-            user_id=current_user.id,
-            created_at=time.time()
-        )
-        db.session.add(new_pod)
-        db.session.commit()
-
-        # Get the dynamically assigned NodePort
-        node_port = created_service.spec.ports[0].node_port if created_service.spec.ports else None
-
-        # Get a Node IP to expose the service
-        node_list = v1.list_node()
-        node_ip = next(
-            (addr.address for addr in node_list.items[0].status.addresses
-             if addr.type == "ExternalIP"), "localhost"
-        )
-
-        # Check if node_ip and node_port are valid
-        if not node_ip:
-            node_ip = "localhost"
-        if not node_port:
-            return jsonify({"message": "Error: NodePort not assigned"}), 500
-
-        # Return information for accessing the pod
-        return jsonify({
-            "message": "Pod created successfully",
-            "name": pod_name,
-            "image": image,
-            "node_ip": node_ip,
-            "node_port": node_port  # The dynamically assigned NodePort for external access
-        }), 201
-
-    except client.exceptions.ApiException as e:
-        return jsonify({"msg": f"Kubernetes API error: {e.reason}"}), e.status
-    except Exception as e:
-        return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
-
-
+    # Obtener la información del usuario autenticado
+    current_user = get_jwt_identity()
     
+    # Obtener los datos del request
+    data = request.get_json()
+    name = data.get('name')
+    image = data.get('image')
+    ports = data.get('ports')  
+    
+    if not name or not image or not ports:
+        return jsonify({'msg': 'Name, image, and ports are required'}), 400
+
+    # Crear el pod
+    pod_manifest = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": name,
+            "labels": {
+                "app": name
+            }
+        },
+        "spec": {
+            "containers": [
+                {
+                    "name": name,
+                    "image": image,
+                    "ports": [{"containerPort": port} for port in ports]
+                }
+            ]
+        }
+    }
+
+    try:
+        v1.create_namespaced_pod(namespace="default", body=pod_manifest)
+    except client.exceptions.ApiException as e:
+        return jsonify({'msg': f'Error creating pod: {e}'}), 500
+
+    # Crear el servicio de tipo NodePort
+    node_port = random.randint(30000, 32767)
+
+    service_manifest = {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {
+            "name": f"{name}-service"
+        },
+        "spec": {
+            "type": "NodePort",
+            "selector": {
+                "app": name
+            },
+            "ports": [
+                {
+                    "port": 80,
+                    "targetPort": ports[0],  # Usar el primer puerto del contenedor
+                    "nodePort": node_port
+                }
+            ]
+        }
+    }
+
+    try:
+        v1.create_namespaced_service(namespace="default", body=service_manifest)
+    except client.exceptions.ApiException as e:
+        return jsonify({'msg': f'Error creating service: {e}'}), 500
+
+    # Obtener la IP interna del nodo
+    nodes = v1.list_node()
+    internal_ip = None
+    for node in nodes.items:
+        if node.status.addresses:
+            for address in node.status.addresses:
+                if address.type == 'InternalIP':
+                    internal_ip = address.address
+                    break
+        if internal_ip:
+            break
+
+    if not internal_ip:
+        return jsonify({'msg': 'No internal IP found for nodes'}), 500
+
+    # Devolver la información al usuario
+    return jsonify({
+        'msg': 'Pod and service created successfully',
+        'nodePort': node_port,
+        'internalIP': internal_ip,
+        'accessURL': f'http://cca.bucaramanga.upb.edu.co}:{node_port}'
+    }), 201
+
+
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
