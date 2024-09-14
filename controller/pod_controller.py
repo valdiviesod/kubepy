@@ -41,10 +41,6 @@ def create_pod():
     
     if not pod_name or not image:
         return jsonify({"msg": "Missing pod name or image"}), 400
-    
-    user_pod_count = Pod.query.filter_by(user_id=current_user.id).count()
-    #if user_pod_count >= current_app.config['MAX_PODS_PER_USER']:
-    #    return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
     try:
         # Create the Deployment
@@ -96,9 +92,9 @@ def create_pod():
                     "app": pod_name
                 },
                 "ports": [
-                    {"port": int(port), "targetPort": int(port)}
+                    {"name": f"port-{port}", "port": int(port), "targetPort": int(port)}
                     for port in ports.split(',')
-                ] if ports else [{"port": 80, "targetPort": 80}]
+                ] if ports else [{"name": "port-80", "port": 80, "targetPort": 80}]
             }
         }
         v1.create_namespaced_service(body=service_manifest, namespace="default")
@@ -162,6 +158,7 @@ def create_pod():
         }), 201
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
+
 
 
 
