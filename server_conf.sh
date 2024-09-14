@@ -145,7 +145,7 @@ kubectl -n kube-system get pods
 
 #kubectl run nginx-test-pod --image=nginx --port=80
 # Install Nginx Ingress Controller
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
 
 # Wait for Nginx Ingress Controller to be ready
 kubectl wait --namespace ingress-nginx \
@@ -173,9 +173,6 @@ kubectl set env deployment/ingress-nginx-controller -n ingress-nginx --from=conf
 
 # Verify Nginx Ingress Controller is running
 kubectl get pods -n ingress-nginx
-
-# Get the external IP of the Nginx Ingress Controller (if using a cloud provider)
-kubectl get service ingress-nginx-controller -n ingress-nginx
 
 
 # MySQL

@@ -193,8 +193,7 @@ def check_k8s_connection():
         pod_names = [pod.metadata.name for pod in pods.items]
         
         return jsonify({
-            "msg": "Kubernetes connection successful",
-            "pods": pod_names
+            "msg": "Kubernetes connection successful"
         }), 200
     except Exception as e:
         return jsonify({"msg": f"Error connecting to Kubernetes: {str(e)}"}), 500
