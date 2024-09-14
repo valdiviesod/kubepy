@@ -43,8 +43,8 @@ def create_pod():
         return jsonify({"msg": "Missing pod name or image"}), 400
     
     user_pod_count = Pod.query.filter_by(user_id=current_user.id).count()
-    if user_pod_count >= current_app.config['MAX_PODS_PER_USER']:
-        return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
+    #if user_pod_count >= current_app.config['MAX_PODS_PER_USER']:
+    #    return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
     try:
         # Create the Deployment
