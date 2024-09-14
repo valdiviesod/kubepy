@@ -39,110 +39,84 @@ def get_pods():
     return jsonify(pod_list), 200
 
 def create_pod():
-    current_user = get_jwt_identity()
-    
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+
     data = request.get_json()
     name = data.get('name')
     image = data.get('image')
-    ports = data.get('ports')  # Lista de puertos, e.g., [80, 8080]
-    
+    ports = data.get('ports')
+
     if not name or not image or not ports:
-        return jsonify({'msg': 'Name, image, and ports are required'}), 400
+        return jsonify({"msg": "Missing required fields"}), 400
 
-    deployment_manifest = {
-        "apiVersion": "apps/v1",
-        "kind": "Deployment",
-        "metadata": {
-            "name": name,
-            "labels": {
-                "app": name
-            }
-        },
-        "spec": {
-            "selector": {
-                "matchLabels": {
-                    "app": name
-                }
-            },
-            "template": {
-                "metadata": {
-                    "labels": {
-                        "app": name
-                    }
-                },
-                "spec": {
-                    "containers": [
-                        {
-                            "name": name,
-                            "image": image,
-                            "ports": [{"containerPort": port} for port in ports]
-                        }
+    pod_name = f"{current_user.username}-{name}"
+
+    # Create Deployment
+    deployment = client.V1Deployment(
+        api_version="apps/v1",
+        kind="Deployment",
+        metadata=client.V1ObjectMeta(name=pod_name),
+        spec=client.V1DeploymentSpec(
+            selector=client.V1LabelSelector(
+                match_labels={"app": pod_name}
+            ),
+            template=client.V1PodTemplateSpec(
+                metadata=client.V1ObjectMeta(labels={"app": pod_name}),
+                spec=client.V1PodSpec(
+                    containers=[
+                        client.V1Container(
+                            name=pod_name,
+                            image=image,
+                            ports=[client.V1ContainerPort(container_port=port) for port in ports]
+                        )
                     ]
-                }
-            }
-        }
-    }
+                )
+            )
+        )
+    )
 
-    try:
-        apps_v1.create_namespaced_deployment(namespace="default", body=deployment_manifest)
-    except client.exceptions.ApiException as e:
-        return jsonify({'msg': f'Error creating deployment: {e}'}), 500
+    apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
 
+    # Create Service
     node_port = random.randint(30000, 32767)
-    
-    service_manifest = {
-        "apiVersion": "v1",
-        "kind": "Service",
-        "metadata": {
-            "name": f"{name}-service"
-        },
-        "spec": {
-            "type": "NodePort",
-            "selector": {
-                "app": name
-            },
-            "ports": [
-                {
-                    "port": ports[0],  # Puerto expuesto
-                    "targetPort": ports[0],  # Primer puerto del contenedor
-                    "nodePort": node_port  # Puerto NodePort dinámico
-                }
+    service = client.V1Service(
+        api_version="v1",
+        kind="Service",
+        metadata=client.V1ObjectMeta(name=pod_name),
+        spec=client.V1ServiceSpec(
+            type="NodePort",
+            selector={"app": pod_name},
+            ports=[
+                client.V1ServicePort(
+                    port=ports[0],
+                    target_port=ports[0],
+                    node_port=node_port
+                )
             ]
-        }
-    }
+        )
+    )
 
-    try:
-        v1.create_namespaced_service(namespace="default", body=service_manifest)
-    except client.exceptions.ApiException as e:
-        return jsonify({'msg': f'Error creating service: {e}'}), 500
+    v1.create_namespaced_service(namespace="default", body=service)
 
-    try:
-        service = v1.read_namespaced_service(name=f"{name}-service", namespace="default")
-    except client.exceptions.ApiException as e:
-        return jsonify({'msg': f'Error retrieving service details: {e}'}), 500
-
-    nodes = v1.list_node()
-    internal_ip = None
-    for node in nodes.items:
-        if node.status.addresses:
-            for address in node.status.addresses:
-                if address.type == 'InternalIP':
-                    internal_ip = address.address
-                    break
-        if internal_ip:
-            break
-
-    if not internal_ip:
-        return jsonify({'msg': 'No internal IP found for nodes'}), 500
+    # Save Pod to Database
+    new_pod = Pod(
+        name=pod_name,
+        image=image,
+        ports=ports,
+        user_id=current_user.id
+    )
+    db.session.add(new_pod)
+    db.session.commit()
 
     return jsonify({
-        'msg': 'Pod and service created successfully',
-        'podName': name,
-        'serviceName': f"{name}-service",
-        'nodePort': node_port,
-        'internalIP': internal_ip,
-        'accessURL': f'http://{internal_ip}:{node_port}'
+        "msg": "Pod created successfully",
+        "pod_name": pod_name,
+        "node_port": node_port
     }), 201
+
+
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
