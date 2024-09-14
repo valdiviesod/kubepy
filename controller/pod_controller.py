@@ -1,15 +1,14 @@
-from flask import request, jsonify, current_app
+from flask import request, jsonify
 from flask_jwt_extended import get_jwt_identity
 from kubernetes import client, config
 from model.user import User
 from model.pod import Pod
 from database.db import db
-import time
+import random
 
 config.load_kube_config()
 v1 = client.CoreV1Api()
 apps_v1 = client.AppsV1Api()
-networking_v1 = client.NetworkingV1Api()
 
 def get_pods():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
@@ -20,40 +19,28 @@ def get_pods():
         try:
             k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
             status = k8s_pod.status.phase
-
-            # Obtain the IP address of the pod
             pod_ip = k8s_pod.status.pod_ip
 
-            # Obtain the hostname from the ingress
-            ingress_list = networking_v1.list_namespaced_ingress(namespace="default")
-            ingress_hostname = next(
-                (rule.host for rule in ingress_list.items[0].spec.rules
-                 if rule.host.startswith(pod.name)), 
-                "Not Found"
-            )
+            pod_list.append({
+                "name": pod.name,
+                "image": pod.image,
+                "ports": pod.ports,
+                "status": status,
+                "ip": pod_ip
+            })
 
         except client.exceptions.ApiException:
-            status = "Not Found in Kubernetes"
-            pod_ip = "Not Available"
-            ingress_hostname = "Not Available"
-
-        pod_list.append({
-            "name": pod.name,
-            "image": pod.image,
-            "ports": pod.ports,
-            "status": status,
-            "ip": pod_ip,
-
-        })
+            pod_list.append({
+                "name": pod.name,
+                "status": "Not Found in Kubernetes",
+                "ip": "Not Available"
+            })
 
     return jsonify(pod_list), 200
 
-
 def create_pod():
-    # Obtener la información del usuario autenticado
     current_user = get_jwt_identity()
     
-    # Obtener los datos del request
     data = request.get_json()
     name = data.get('name')
     image = data.get('image')
@@ -62,7 +49,6 @@ def create_pod():
     if not name or not image or not ports:
         return jsonify({'msg': 'Name, image, and ports are required'}), 400
 
-    # Crear el Deployment
     deployment_manifest = {
         "apiVersion": "apps/v1",
         "kind": "Deployment",
@@ -102,7 +88,6 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({'msg': f'Error creating deployment: {e}'}), 500
 
-    # Crear el servicio NodePort
     node_port = random.randint(30000, 32767)
     
     service_manifest = {
@@ -118,7 +103,7 @@ def create_pod():
             },
             "ports": [
                 {
-                    "port": 80,  # Puerto expuesto
+                    "port": ports[0],  # Puerto expuesto
                     "targetPort": ports[0],  # Primer puerto del contenedor
                     "nodePort": node_port  # Puerto NodePort dinámico
                 }
@@ -131,13 +116,11 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({'msg': f'Error creating service: {e}'}), 500
 
-    # Obtener detalles del servicio creado
     try:
         service = v1.read_namespaced_service(name=f"{name}-service", namespace="default")
     except client.exceptions.ApiException as e:
         return jsonify({'msg': f'Error retrieving service details: {e}'}), 500
 
-    # Obtener la IP interna del nodo
     nodes = v1.list_node()
     internal_ip = None
     for node in nodes.items:
@@ -152,16 +135,14 @@ def create_pod():
     if not internal_ip:
         return jsonify({'msg': 'No internal IP found for nodes'}), 500
 
-    # Devolver la información al usuario
     return jsonify({
         'msg': 'Pod and service created successfully',
         'podName': name,
         'serviceName': f"{name}-service",
-        'nodePort': service.spec.ports[0].node_port,
+        'nodePort': node_port,
         'internalIP': internal_ip,
-        'accessURL': f'http://{internal_ip}:{service.spec.ports[0].node_port}'
+        'accessURL': f'http://{internal_ip}:{node_port}'
     }), 201
-
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
@@ -190,13 +171,9 @@ def get_pod_terminal(pod_name):
 
 def check_k8s_connection():
     try:
-        # Intenta listar los pods en el namespace "default"
         pods = v1.list_namespaced_pod(namespace="default")
         pod_names = [pod.metadata.name for pod in pods.items]
-        
-        return jsonify({
-            "msg": "Kubernetes connection successful"
-        }), 200
+        return jsonify({"msg": "Kubernetes connection successful"}), 200
     except Exception as e:
         return jsonify({"msg": f"Error connecting to Kubernetes: {str(e)}"}), 500
 
