@@ -81,6 +81,14 @@ def create_pod():
             time.sleep(1)  # Sleep before polling again
 
         # Create a Service
+        service_ports = []
+        for i, port in enumerate(ports.split(',') if ports else ['80']):
+            service_ports.append({
+                "name": f"port-{i}",  # Add a unique name for each port
+                "port": int(port),
+                "targetPort": int(port)
+            })
+
         service_manifest = {
             "apiVersion": "v1",
             "kind": "Service",
@@ -91,10 +99,7 @@ def create_pod():
                 "selector": {
                     "app": pod_name
                 },
-                "ports": [
-                    {"name": f"port-{port}", "port": int(port), "targetPort": int(port)}
-                    for port in ports.split(',')
-                ] if ports else [{"name": "port-80", "port": 80, "targetPort": 80}]
+                "ports": service_ports
             }
         }
         v1.create_namespaced_service(body=service_manifest, namespace="default")
@@ -158,9 +163,6 @@ def create_pod():
         }), 201
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
-
-
-
 
 
 def delete_pod(pod_name):
