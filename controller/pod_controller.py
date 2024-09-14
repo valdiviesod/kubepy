@@ -91,7 +91,15 @@ def create_pod():
         return jsonify({"msg": f"Error creating deployment: {str(e)}"}), 500
 
     # Create Service
-    node_port = 32000  # Manually assigned NodePort
+    service_ports = [
+        client.V1ServicePort(
+            port=port,
+            target_port=port,
+            node_port=node_port if i == 0 else None  # Assign node port only to the first port
+        )
+        for i, port in enumerate(ports)
+    ]
+    
     service = client.V1Service(
         api_version="v1",
         kind="Service",
@@ -99,14 +107,7 @@ def create_pod():
         spec=client.V1ServiceSpec(
             type="NodePort",
             selector={"app": pod_name},
-            ports=[
-                client.V1ServicePort(
-                    port=port,
-                    target_port=port,
-                    node_port=node_port if i == 0 else None  # Assign node port only to the first port
-                )
-                for i, port in enumerate(ports)
-            ]
+            ports=service_ports
         )
     )
 
@@ -130,6 +131,7 @@ def create_pod():
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
+
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
