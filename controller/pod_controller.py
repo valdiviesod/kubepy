@@ -90,6 +90,9 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Error creating deployment: {str(e)}"}), 500
 
+    # Initialize node_port
+    node_port = None
+
     # Create Service
     service_ports = [
         client.V1ServicePort(
@@ -112,7 +115,9 @@ def create_pod():
     )
 
     try:
-        v1.create_namespaced_service(namespace="default", body=service)
+        service_response = v1.create_namespaced_service(namespace="default", body=service)
+        # Set the node port for the response (use the first port for node port)
+        node_port = service_ports[0].node_port if service_ports else None
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Error creating service: {str(e)}"}), 500
 
@@ -126,10 +131,8 @@ def create_pod():
     db.session.add(new_pod)
     db.session.commit()
 
-    # Set the node port for the response (use the first port for node port)
-    node_port = service_ports[0].node_port if service_ports else None
-
     return jsonify({
+        "msg": "Pod created successfully",
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
