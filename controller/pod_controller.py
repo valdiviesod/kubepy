@@ -80,7 +80,7 @@ def create_pod():
     apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
 
     # Create Service
-    node_port = random.randint(30000, 32767)
+    node_port = 32000  # Manually assigned NodePort
     service = client.V1Service(
         api_version="v1",
         kind="Service",
@@ -115,7 +115,6 @@ def create_pod():
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
-
 
 
 def delete_pod(pod_name):
