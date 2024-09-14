@@ -38,7 +38,7 @@ def create_pod():
     pod_name = request.json.get('name')
     image = request.json.get('image')
     ports = request.json.get('ports')
-    
+
     if not pod_name or not image:
         return jsonify({"msg": "Missing pod name or image"}), 400
     
@@ -47,7 +47,7 @@ def create_pod():
         return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
     try:
-        # Create the pod
+        # Crear el pod
         pod_manifest = {
             "apiVersion": "v1",
             "kind": "Pod",
@@ -67,11 +67,11 @@ def create_pod():
             }
         }
         
-        api_response = v1.create_namespaced_pod(body=pod_manifest, namespace="default")
+        v1.create_namespaced_pod(body=pod_manifest, namespace="default")
         
-        # Wait for the pod to be running and get its IP
+        # Esperar a que el pod esté en ejecución y obtener su IP
         start_time = time.time()
-        timeout = 300  # Timeout in seconds
+        timeout = 300  # Timeout en segundos
         while True:
             pod = v1.read_namespaced_pod(name=f"{current_user.username}-{pod_name}", namespace="default")
             if pod.status.phase == 'Running' and pod.status.pod_ip:
@@ -80,9 +80,9 @@ def create_pod():
                 break
             if time.time() - start_time > timeout:
                 return jsonify({"msg": "Timeout while waiting for pod to be running"}), 504
-            time.sleep(1)  # Sleep before polling again
+            time.sleep(1)  # Esperar antes de volver a consultar
         
-        # Create a service for the pod
+        # Crear un servicio para el pod
         service_manifest = {
             "apiVersion": "v1",
             "kind": "Service",
@@ -101,14 +101,14 @@ def create_pod():
         }
         v1.create_namespaced_service(body=service_manifest, namespace="default")
 
-        # Create an Ingress resource
+        # Crear un recurso de Ingress
         ingress_manifest = {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
             "metadata": {
                 "name": f"{current_user.username}-{pod_name}-ingress",
                 "annotations": {
-                    "kubernetes.io/ingress.class": "nginx"
+                    "nginx.ingress.kubernetes.io/rewrite-target": "/"
                 }
             },
             "spec": {
@@ -137,7 +137,12 @@ def create_pod():
         }
         networking_v1.create_namespaced_ingress(body=ingress_manifest, namespace="default")
 
-        # Save pod information to database
+        # Confirmar la creación del Ingress
+        ingress = networking_v1.read_namespaced_ingress(name=f"{current_user.username}-{pod_name}-ingress", namespace="default")
+        if not ingress:
+            return jsonify({"msg": "Ingress creation failed"}), 500
+
+        # Guardar la información del pod en la base de datos
         db_pod = Pod(
             name=f"{current_user.username}-{pod_name}",
             image=image,
