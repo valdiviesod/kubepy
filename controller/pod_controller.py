@@ -53,8 +53,14 @@ def create_pod():
 
     pod_name = f"{current_user.username}-{name}"
 
-    # Convert ports to int
-    ports = [int(port) for port in ports]
+    try:
+        # Convert ports to int and filter out invalid entries
+        ports = [int(port) for port in ports if port.isdigit()]
+    except ValueError:
+        return jsonify({"msg": "Invalid port value"}), 400
+
+    if not ports:
+        return jsonify({"msg": "No valid ports provided"}), 400
 
     # Create Deployment
     deployment = client.V1Deployment(
@@ -114,6 +120,7 @@ def create_pod():
     db.session.commit()
 
     return jsonify({
+        "msg": "Pod created successfully",
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
