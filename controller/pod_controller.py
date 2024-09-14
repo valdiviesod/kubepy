@@ -4,7 +4,6 @@ from kubernetes import client, config
 from model.user import User
 from model.pod import Pod
 from database.db import db
-import random
 
 config.load_kube_config()
 v1 = client.CoreV1Api()
@@ -20,7 +19,7 @@ def get_pods():
             k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
             status = k8s_pod.status.phase
             pod_ip = k8s_pod.status.pod_ip
-
+            
             pod_list.append({
                 "name": pod.name,
                 "image": pod.image,
@@ -55,7 +54,7 @@ def create_pod():
 
     try:
         # Convert ports to int and filter out invalid entries
-        ports = [int(port) for port in ports if isinstance(port, int) or port.isdigit()]
+        ports = [int(port) for port in ports if port.isdigit()]
     except ValueError:
         return jsonify({"msg": "Invalid port value"}), 400
 
@@ -86,7 +85,10 @@ def create_pod():
         )
     )
 
-    apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
+    try:
+        apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
+    except client.exceptions.ApiException as e:
+        return jsonify({"msg": f"Error creating deployment: {str(e)}"}), 500
 
     # Create Service
     node_port = 32000  # Manually assigned NodePort
@@ -99,15 +101,19 @@ def create_pod():
             selector={"app": pod_name},
             ports=[
                 client.V1ServicePort(
-                    port=ports[0],
-                    target_port=ports[0],
-                    node_port=node_port
+                    port=port,
+                    target_port=port,
+                    node_port=node_port if i == 0 else None  # Assign node port only to the first port
                 )
+                for i, port in enumerate(ports)
             ]
         )
     )
 
-    v1.create_namespaced_service(namespace="default", body=service)
+    try:
+        v1.create_namespaced_service(namespace="default", body=service)
+    except client.exceptions.ApiException as e:
+        return jsonify({"msg": f"Error creating service: {str(e)}"}), 500
 
     # Save Pod to Database
     new_pod = Pod(
@@ -128,10 +134,10 @@ def create_pod():
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
-    
+
     if not db_pod:
         return jsonify({"msg": "Pod not found or not owned by user"}), 404
-    
+
     try:
         v1.delete_namespaced_pod(name=db_pod.name, namespace="default")
         db.session.delete(db_pod)
@@ -143,10 +149,10 @@ def delete_pod(pod_name):
 def get_pod_terminal(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
-    
+
     if not db_pod:
         return jsonify({"msg": "Pod not found or not owned by user"}), 404
-    
+
     # Return terminal access (TO DO)
     return jsonify({"msg": "Terminal access details", "pod_ip": db_pod.ip}), 200
 
@@ -161,15 +167,15 @@ def check_k8s_connection():
 def exec_in_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     db_pod = Pod.query.filter_by(name=f"{current_user.username}-{pod_name}", user_id=current_user.id).first()
-    
+
     if not db_pod:
         return jsonify({"msg": "Pod not found or not owned by user"}), 404
-    
+
     command = request.json.get('command')
-    
+
     if not command:
         return jsonify({"msg": "Missing command"}), 400
-    
+
     try:
         exec_command = ['/bin/sh', '-c', command]
         resp = stream(
