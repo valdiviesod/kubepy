@@ -52,14 +52,26 @@ def create_pod():
 
     pod_name = f"{current_user.username}-{name}"
 
-    # Ensure ports is a list of integers
     try:
-        ports = [int(port.strip()) for port in ports.split(',') if port.strip().isdigit()]
+        # Convert ports to int and filter out invalid entries
+        ports = [int(port) for port in ports.split(',') if port.strip().isdigit()]
     except ValueError:
         return jsonify({"msg": "Invalid port value"}), 400
 
     if not ports:
         return jsonify({"msg": "No valid ports provided"}), 400
+
+    # Ensure nodePorts are unique and not used already
+    existing_services = v1.list_namespaced_service(namespace="default")
+    used_node_ports = {port.node_port for svc in existing_services.items for port in svc.spec.ports if svc.spec.type == "NodePort"}
+
+    node_ports = []
+    for i, port in enumerate(ports):
+        node_port = 30000 + i
+        while node_port in used_node_ports:
+            node_port += 1
+        node_ports.append(node_port)
+        used_node_ports.add(node_port)
 
     # Create Deployment
     deployment = client.V1Deployment(
@@ -90,15 +102,12 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Error creating deployment: {str(e)}"}), 500
 
-    # Initialize node_port
-    node_port = None
-
     # Create Service
     service_ports = [
         client.V1ServicePort(
             port=port,
             target_port=port,
-            node_port=node_port if i == 0 else None  # Assign node port only to the first port
+            node_port=node_ports[i] if i < len(node_ports) else None  # Assign node port from list
         )
         for i, port in enumerate(ports)
     ]
@@ -115,9 +124,7 @@ def create_pod():
     )
 
     try:
-        service_response = v1.create_namespaced_service(namespace="default", body=service)
-        # Set the node port for the response (use the first port for node port)
-        node_port = service_ports[0].node_port if service_ports else None
+        v1.create_namespaced_service(namespace="default", body=service)
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Error creating service: {str(e)}"}), 500
 
@@ -134,10 +141,8 @@ def create_pod():
     return jsonify({
         "msg": "Pod created successfully",
         "pod_name": pod_name,
-        "node_port": node_port
+        "node_ports": node_ports  # Return the assigned nodePorts
     }), 201
-
-
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
