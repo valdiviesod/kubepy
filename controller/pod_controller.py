@@ -82,27 +82,26 @@ def create_pod():
 
         # Create a Service
         service_ports = []
-        for i, port in enumerate(ports.split(',') if ports else ['80']):
-            service_ports.append({
-                "name": f"port-{i}",  # Add a unique name for each port
-                "port": int(port),
-                "targetPort": int(port)
-            })
+        if ports:
+            for i, port in enumerate(ports.split(',')):
+                service_ports.append(client.V1ServicePort(
+                    name=f"port-{port}",  # Usar el número de puerto como parte del nombre
+                    port=int(port),
+                    target_port=int(port)
+                ))
+        else:
+            service_ports = [client.V1ServicePort(name="port-80", port=80, target_port=80)]
 
-        service_manifest = {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "metadata": {
-                "name": f"{current_user.username}-{pod_name}-service"
-            },
-            "spec": {
-                "selector": {
-                    "app": pod_name
-                },
-                "ports": service_ports
-            }
-        }
-        v1.create_namespaced_service(body=service_manifest, namespace="default")
+        service = client.V1Service(
+            api_version="v1",
+            kind="Service",
+            metadata=client.V1ObjectMeta(name=f"{current_user.username}-{pod_name}-service"),
+            spec=client.V1ServiceSpec(
+                selector={"app": pod_name},
+                ports=service_ports
+            )
+        )
+        v1.create_namespaced_service(namespace="default", body=service)
 
         # Create an Ingress
         ingress_manifest = {
