@@ -10,34 +10,6 @@ config.load_kube_config()
 v1 = client.CoreV1Api()
 apps_v1 = client.AppsV1Api()
 
-def get_pods():
-    current_user = User.query.filter_by(username=get_jwt_identity()).first()
-    user_pods = Pod.query.filter_by(user_id=current_user.id).all()
-    
-    pod_list = []
-    for pod in user_pods:
-        try:
-            k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
-            status = k8s_pod.status.phase
-            pod_ip = k8s_pod.status.pod_ip
-
-            pod_list.append({
-                "name": pod.name,
-                "image": pod.image,
-                "ports": pod.ports,
-                "status": status,
-                "ip": pod_ip
-            })
-
-        except client.exceptions.ApiException:
-            pod_list.append({
-                "name": pod.name,
-                "status": "Not Found in Kubernetes",
-                "ip": "Not Available"
-            })
-
-    return jsonify(pod_list), 200
-
 def create_pod():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     if not current_user:
@@ -52,6 +24,9 @@ def create_pod():
         return jsonify({"msg": "Missing required fields"}), 400
 
     pod_name = f"{current_user.username}-{name}"
+
+    # Convert ports to int
+    ports = [int(port) for port in ports]
 
     # Create Deployment
     deployment = client.V1Deployment(
@@ -114,7 +89,6 @@ def create_pod():
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
-
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
