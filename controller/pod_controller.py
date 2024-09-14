@@ -1,7 +1,6 @@
 from flask import request, jsonify, current_app
 from flask_jwt_extended import get_jwt_identity
 from kubernetes import client, config
-from kubernetes.stream import stream
 from model.user import User
 from model.pod import Pod
 from database.db import db
@@ -9,6 +8,7 @@ import time
 
 config.load_kube_config()
 v1 = client.CoreV1Api()
+apps_v1 = client.AppsV1Api()
 networking_v1 = client.NetworkingV1Api()
 
 def get_pods():
@@ -38,7 +38,7 @@ def create_pod():
     pod_name = request.json.get('name')
     image = request.json.get('image')
     ports = request.json.get('ports')
-
+    
     if not pod_name or not image:
         return jsonify({"msg": "Missing pod name or image"}), 400
     
@@ -47,42 +47,44 @@ def create_pod():
         return jsonify({"msg": f"Maximum number of pods ({current_app.config['MAX_PODS_PER_USER']}) reached for this user"}), 400
 
     try:
-        # Crear el pod
-        pod_manifest = {
-            "apiVersion": "v1",
-            "kind": "Pod",
-            "metadata": {
-                "name": f"{current_user.username}-{pod_name}",
-                "labels": {
-                    "user": current_user.username,
-                    "app": pod_name
-                }
-            },
-            "spec": {
-                "containers": [{
-                    "name": pod_name,
-                    "image": image,
-                    "ports": [{"containerPort": int(port)} for port in ports.split(',')] if ports else []
-                }]
-            }
-        }
+        # Create the Deployment
+        container = client.V1Container(
+            name=pod_name,
+            image=image,
+            ports=[client.V1ContainerPort(container_port=int(port)) for port in ports.split(',')] if ports else []
+        )
+        template = client.V1PodTemplateSpec(
+            metadata=client.V1ObjectMeta(labels={"app": pod_name}),
+            spec=client.V1PodSpec(containers=[container])
+        )
+        spec = client.V1DeploymentSpec(
+            replicas=1,
+            selector=client.V1LabelSelector(
+                match_labels={"app": pod_name}
+            ),
+            template=template
+        )
+        deployment = client.V1Deployment(
+            api_version="apps/v1",
+            kind="Deployment",
+            metadata=client.V1ObjectMeta(name=f"{current_user.username}-{pod_name}"),
+            spec=spec
+        )
+        apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
         
-        v1.create_namespaced_pod(body=pod_manifest, namespace="default")
-        
-        # Esperar a que el pod esté en ejecución y obtener su IP
+        # Wait for the deployment to be running
         start_time = time.time()
-        timeout = 300  # Timeout en segundos
+        timeout = 300  # Timeout in seconds
         while True:
-            pod = v1.read_namespaced_pod(name=f"{current_user.username}-{pod_name}", namespace="default")
-            if pod.status.phase == 'Running' and pod.status.pod_ip:
-                pod_ip = pod.status.pod_ip
-                status = pod.status.phase
+            pods = v1.list_namespaced_pod(namespace="default", label_selector=f"app={pod_name}")
+            if any(pod.status.phase == 'Running' for pod in pods.items):
+                pod_ip = pods.items[0].status.pod_ip
                 break
             if time.time() - start_time > timeout:
                 return jsonify({"msg": "Timeout while waiting for pod to be running"}), 504
-            time.sleep(1)  # Esperar antes de volver a consultar
-        
-        # Crear un servicio para el pod
+            time.sleep(1)  # Sleep before polling again
+
+        # Create a Service
         service_manifest = {
             "apiVersion": "v1",
             "kind": "Service",
@@ -101,7 +103,7 @@ def create_pod():
         }
         v1.create_namespaced_service(body=service_manifest, namespace="default")
 
-        # Crear un recurso de Ingress
+        # Create an Ingress
         ingress_manifest = {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
@@ -137,18 +139,13 @@ def create_pod():
         }
         networking_v1.create_namespaced_ingress(body=ingress_manifest, namespace="default")
 
-        # Confirmar la creación del Ingress
-        ingress = networking_v1.read_namespaced_ingress(name=f"{current_user.username}-{pod_name}-ingress", namespace="default")
-        if not ingress:
-            return jsonify({"msg": "Ingress creation failed"}), 500
-
-        # Guardar la información del pod en la base de datos
+        # Save pod information to database
         db_pod = Pod(
             name=f"{current_user.username}-{pod_name}",
             image=image,
             ports=ports,
             ip=pod_ip,
-            status=status,
+            status='Running',
             user_id=current_user.id
         )
         db.session.add(db_pod)
@@ -165,6 +162,7 @@ def create_pod():
         }), 201
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
+
 
 
 def delete_pod(pod_name):
