@@ -43,98 +43,106 @@ def get_pods():
             "ports": pod.ports,
             "status": status,
             "ip": pod_ip,
-            "hostname": ingress_hostname
+
         })
 
     return jsonify(pod_list), 200
 
 
 def create_pod():
-    data = request.json
-    name = data.get('name')
-    image = data.get('image')
-    ports = data.get('ports', '')
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
 
-    # Create Pod
-    container = client.V1Container(
-        name=name,
-        image=image,
-        ports=[client.V1ContainerPort(container_port=int(port)) for port in ports.split(",")]
+    if not current_user:
+        return jsonify({"message": "User not found"}), 404
+
+    # Get the request data for the pod creation
+    pod_name = request.json.get("name")
+    image = request.json.get("image", "nginx")
+    ports = request.json.get("ports", [80])
+
+    # Create a Kubernetes deployment for the pod
+    deployment = client.V1Deployment(
+        api_version="apps/v1",
+        kind="Deployment",
+        metadata=client.V1ObjectMeta(name=pod_name),
+        spec=client.V1DeploymentSpec(
+            selector=client.V1LabelSelector(
+                match_labels={"app": pod_name}
+            ),
+            template=client.V1PodTemplateSpec(
+                metadata=client.V1ObjectMeta(labels={"app": pod_name}),
+                spec=client.V1PodSpec(
+                    containers=[
+                        client.V1Container(
+                            name="web-server",
+                            image=image,
+                            ports=[
+                                client.V1ContainerPort(container_port=port)
+                                for port in ports
+                            ],
+                        )
+                    ]
+                ),
+            ),
+        ),
     )
-    pod_spec = client.V1PodSpec(containers=[container])
-    pod = client.V1Pod(
-        api_version="v1",
-        kind="Pod",
-        metadata=client.V1ObjectMeta(name=name),
-        spec=pod_spec
+
+    # Create the deployment in Kubernetes
+    apps_v1.create_namespaced_deployment(
+        namespace="default", body=deployment
     )
-    v1.create_namespaced_pod(namespace="default", body=pod)
 
-    # Wait for the pod to be ready
-    while True:
-        try:
-            pod_status = v1.read_namespaced_pod(name=name, namespace="default").status.phase
-            if pod_status == "Running":
-                break
-        except client.exceptions.ApiException:
-            pass
-        time.sleep(5)
-
-    # Create a service to expose the pod
+    # Create a NodePort service without specifying the nodePort, allowing Kubernetes to assign a dynamic NodePort
     service = client.V1Service(
         api_version="v1",
         kind="Service",
-        metadata=client.V1ObjectMeta(name=name),
+        metadata=client.V1ObjectMeta(name=f"{pod_name}-service"),
         spec=client.V1ServiceSpec(
-            selector={"app": name},
-            ports=[client.V1ServicePort(
-                port=int(ports.split(",")[0]),  # Assuming single port for simplicity
-                target_port=int(ports.split(",")[0])
-            )]
-        )
-    )
-    v1.create_namespaced_service(namespace="default", body=service)
-
-    # Create ingress to expose the service
-    ingress = client.V1Ingress(
-        api_version="networking.k8s.io/v1",
-        kind="Ingress",
-        metadata=client.V1ObjectMeta(
-            name=name,
-            annotations={"nginx.ingress.kubernetes.io/rewrite-target": "/"}
-        ),
-        spec=client.V1IngressSpec(
-            rules=[client.V1IngressRule(
-                host=f"{name}.example.com",  # Replace with actual domain or use a placeholder
-                http=client.V1HTTPIngressRuleValue(
-                    paths=[client.V1HTTPIngressPath(
-                        path="/",
-                        path_type="Prefix",
-                        backend=client.V1IngressBackend(
-                            service=client.V1IngressServiceBackend(
-                                port=client.V1ServiceBackendPort(number=int(ports.split(",")[0])),
-                                name=name
-                            )
-                        )
-                    )]
+            selector={"app": pod_name},
+            type="NodePort",
+            ports=[
+                client.V1ServicePort(
+                    port=80,
+                    target_port=80,
                 )
-            )]
-        )
+            ],
+        ),
     )
-    networking_v1.create_namespaced_ingress(namespace="default", body=ingress)
 
-    # Store pod info in the database
-    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    # Create the service in Kubernetes
+    created_service = v1.create_namespaced_service(namespace="default", body=service)
+
+    # Add the pod to the database
     new_pod = Pod(
-        name=name,
+        name=pod_name,
         image=image,
         ports=ports,
-        user_id=current_user.id
+        user_id=current_user.id,
+        created_at=time.time()
     )
     db.session.add(new_pod)
     db.session.commit()
 
-    return jsonify({"message": "Pod created successfully"}), 201
+    # Get the dynamically assigned NodePort
+    node_port = created_service.spec.ports[0].node_port
+
+    # Get a Node IP to expose the service
+    node_list = v1.list_node()
+    node_ip = next(
+        (addr.address for addr in node_list.items[0].status.addresses
+         if addr.type == "ExternalIP"), "localhost"
+    )
+
+    # Return information for accessing the pod
+    return jsonify({
+        "message": "Pod created successfully",
+        "name": pod_name,
+        "image": image,
+        "node_ip": node_ip,
+        "node_port": node_port,  # The dynamically assigned NodePort for external access
+    }), 201
+
+    
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
