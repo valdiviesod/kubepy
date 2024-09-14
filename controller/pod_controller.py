@@ -131,6 +131,12 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({'msg': f'Error creating service: {e}'}), 500
 
+    # Obtener detalles del servicio creado
+    try:
+        service = v1.read_namespaced_service(name=f"{name}-service", namespace="default")
+    except client.exceptions.ApiException as e:
+        return jsonify({'msg': f'Error retrieving service details: {e}'}), 500
+
     # Obtener la IP interna del nodo
     nodes = v1.list_node()
     internal_ip = None
@@ -151,9 +157,9 @@ def create_pod():
         'msg': 'Pod and service created successfully',
         'podName': name,
         'serviceName': f"{name}-service",
-        'nodePort': node_port,
+        'nodePort': service.spec.ports[0].node_port,
         'internalIP': internal_ip,
-        'accessURL': f'http://{internal_ip}:{node_port}'
+        'accessURL': f'http://{internal_ip}:{service.spec.ports[0].node_port}'
     }), 201
 
 
