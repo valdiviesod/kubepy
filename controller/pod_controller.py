@@ -111,7 +111,6 @@ def create_pod():
     db.session.commit()
 
     return jsonify({
-        "msg": "Pod created successfully",
         "pod_name": pod_name,
         "node_port": node_port
     }), 201
