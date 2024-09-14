@@ -129,11 +129,16 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Error creating service: {str(e)}"}), 500
 
+    # Convert ports list to a comma-separated string
+    ports_str = ','.join(map(str, ports))
+
     # Save Pod to Database
     new_pod = Pod(
         name=pod_name,
         image=image,
-        ports=ports,
+        ports=ports_str,  # Save as a comma-separated string
+        ip=None,
+        status=None,
         user_id=current_user.id
     )
     db.session.add(new_pod)
@@ -144,6 +149,7 @@ def create_pod():
         "pod_name": pod_name,
         "node_ports": node_ports  # Return the assigned nodePorts
     }), 201
+
 
 def delete_pod(pod_name):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
