@@ -55,7 +55,7 @@ def create_pod():
 
     try:
         # Convert ports to int and filter out invalid entries
-        ports = [int(port) for port in ports if port.isdigit()]
+        ports = [int(port) for port in ports if isinstance(port, int) or port.isdigit()]
     except ValueError:
         return jsonify({"msg": "Invalid port value"}), 400
 
