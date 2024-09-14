@@ -33,21 +33,33 @@ def get_pods():
 
     return jsonify(pod_list), 200
 
+from flask import request, jsonify, current_app
+from flask_jwt_extended import get_jwt_identity
+from kubernetes import client, config
+from model.user import User
+from model.pod import Pod
+from database.db import db
+
+config.load_kube_config()
+apps_v1_api = client.AppsV1Api()
+core_v1_api = client.CoreV1Api()
+networking_v1_api = client.NetworkingV1Api()
+
 def create_pod():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     pod_name = request.json.get('name')
     image = request.json.get('image')
-    ports = request.json.get('ports')
-    
+    ports = request.json.get('ports', '80')  # Default to port 80 if not specified
+
     if not pod_name or not image:
         return jsonify({"msg": "Missing pod name or image"}), 400
 
     try:
-        # Create the Deployment
+        # Create Deployment
         container = client.V1Container(
             name=pod_name,
             image=image,
-            ports=[client.V1ContainerPort(container_port=int(port)) for port in ports.split(',')] if ports else []
+            ports=[client.V1ContainerPort(container_port=int(port)) for port in ports.split(',')]
         )
         template = client.V1PodTemplateSpec(
             metadata=client.V1ObjectMeta(labels={"app": pod_name}),
@@ -66,78 +78,72 @@ def create_pod():
             metadata=client.V1ObjectMeta(name=f"{current_user.username}-{pod_name}"),
             spec=spec
         )
-        apps_v1.create_namespaced_deployment(namespace="default", body=deployment)
-        
-        # Wait for the deployment to be running
-        start_time = time.time()
-        timeout = 300  # Timeout in seconds
-        while True:
-            pods = v1.list_namespaced_pod(namespace="default", label_selector=f"app={pod_name}")
-            if any(pod.status.phase == 'Running' for pod in pods.items):
-                pod_ip = pods.items[0].status.pod_ip
-                break
-            if time.time() - start_time > timeout:
-                return jsonify({"msg": "Timeout while waiting for pod to be running"}), 504
-            time.sleep(1)  # Sleep before polling again
+        apps_v1_api.create_namespaced_deployment(
+            namespace="default", body=deployment
+        )
 
-        # Create a Service
-        service_ports = []
-        if ports:
-            for i, port in enumerate(ports.split(',')):
-                service_ports.append(client.V1ServicePort(
-                    name=f"port-{port}",  # Usar el número de puerto como parte del nombre
-                    port=int(port),
-                    target_port=int(port)
-                ))
-        else:
-            service_ports = [client.V1ServicePort(name="port-80", port=80, target_port=80)]
-
+        # Create Service
+        service_ports = [
+            client.V1ServicePort(port=int(port), target_port=int(port))
+            for port in ports.split(',')
+        ]
         service = client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=client.V1ObjectMeta(name=f"{current_user.username}-{pod_name}-service"),
+            metadata=client.V1ObjectMeta(
+                name=f"{current_user.username}-{pod_name}-service"
+            ),
             spec=client.V1ServiceSpec(
                 selector={"app": pod_name},
                 ports=service_ports
             )
         )
-        v1.create_namespaced_service(namespace="default", body=service)
+        core_v1_api.create_namespaced_service(namespace="default", body=service)
 
-        # Create an Ingress
-        ingress_manifest = {
-            "apiVersion": "networking.k8s.io/v1",
-            "kind": "Ingress",
-            "metadata": {
-                "name": f"{current_user.username}-{pod_name}-ingress",
-                "annotations": {
+        # Create Ingress
+        ingress = client.V1Ingress(
+            api_version="networking.k8s.io/v1",
+            kind="Ingress",
+            metadata=client.V1ObjectMeta(
+                name=f"{current_user.username}-{pod_name}-ingress",
+                annotations={
                     "nginx.ingress.kubernetes.io/rewrite-target": "/"
                 }
-            },
-            "spec": {
-                "rules": [
-                    {
-                        "host": f"{current_user.username}-{pod_name}.{current_app.config['DOMAIN']}",
-                        "http": {
-                            "paths": [
-                                {
-                                    "path": "/",
-                                    "pathType": "Prefix",
-                                    "backend": {
-                                        "service": {
-                                            "name": f"{current_user.username}-{pod_name}-service",
-                                            "port": {
-                                                "number": int(ports.split(',')[0]) if ports else 80
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }
-        }
-        networking_v1.create_namespaced_ingress(body=ingress_manifest, namespace="default")
+            ),
+            spec=client.V1IngressSpec(
+                rules=[client.V1IngressRule(
+                    host=f"{current_user.username}-{pod_name}.{current_app.config['DOMAIN']}",
+                    http=client.V1HTTPIngressRuleValue(
+                        paths=[client.V1HTTPIngressPath(
+                            path="/",
+                            path_type="Prefix",
+                            backend=client.V1IngressBackend(
+                                service=client.V1IngressServiceBackend(
+                                    port=client.V1ServiceBackendPort(
+                                        number=int(ports.split(',')[0])
+                                    ),
+                                    name=f"{current_user.username}-{pod_name}-service"
+                                )
+                            )
+                        )]
+                    )
+                )]
+            )
+        )
+        networking_v1_api.create_namespaced_ingress(
+            namespace="default",
+            body=ingress
+        )
+
+        # Wait for the pod to be running
+        while True:
+            pod_list = core_v1_api.list_namespaced_pod(
+                namespace="default",
+                label_selector=f"app={pod_name}"
+            )
+            if pod_list.items and pod_list.items[0].status.phase == 'Running':
+                pod_ip = pod_list.items[0].status.pod_ip
+                break
 
         # Save pod information to database
         db_pod = Pod(
@@ -150,7 +156,7 @@ def create_pod():
         )
         db.session.add(db_pod)
         db.session.commit()
-        
+
         return jsonify({
             "msg": "Pod created successfully",
             "name": db_pod.name,
@@ -160,6 +166,7 @@ def create_pod():
             "status": db_pod.status,
             "hostname": f"{current_user.username}-{pod_name}.{current_app.config['DOMAIN']}"
         }), 201
+
     except Exception as e:
         return jsonify({"msg": f"Error creating pod: {str(e)}"}), 500
 
