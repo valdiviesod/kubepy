@@ -105,6 +105,7 @@ def create_pod():
     # Create Service
     service_ports = [
         client.V1ServicePort(
+            name=f"port-{i}",  # Add a unique name for each port
             port=port,
             target_port=port,
             node_port=node_ports[i] if i < len(node_ports) else None  # Assign node port from list
