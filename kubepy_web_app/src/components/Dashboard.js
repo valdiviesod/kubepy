@@ -7,16 +7,58 @@ function Dashboard({ onLogout }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPod, setSelectedPod] = useState(null);
 
-  useEffect(() => {
-    const mockPods = [
-      { id: 1, name: 'test1', image: 'nginxlatest', ports: '80,443', status: 'Inactive' },
-      { id: 2, name: 'test2', image: 'image2', ports: '8080', status: 'Inactive' },
-      { id: 3, name: 'Pod 3', image: 'image3', ports: '3000', status: 'Active' },
-    ];
-    setPods(mockPods);
-  }, []);
+  const handleDeletePod = async (podName) => {
+    const isConfirmed = window.confirm(`Are you sure you want to delete the pod "${podName}"?`);
 
-  const filteredPods = pods.filter(pod => 
+    if (isConfirmed) {
+      try {
+        const token = localStorage.getItem('token'); // Obtener el token del localStorage
+        const response = await fetch(`https://cca.bucaramanga.upb.edu.co:5000/pods/${podName}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`, // Incluir el token en la cabecera de autorización
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          // Pod eliminado con éxito, actualizar la lista de pods
+          setPods(pods.filter(pod => pod.name !== podName));
+        } else {
+          console.error('Error deleting pod:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error deleting pod:', error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Función para cargar los pods desde la API
+    const fetchPods = async () => {
+      try {
+        const token = localStorage.getItem('token'); // Obtener el token del localStorage
+        const response = await fetch('https://cca.bucaramanga.upb.edu.co:5000/pods', {
+          headers: {
+            'Authorization': `Bearer ${token}`, // Incluir el token en la cabecera de autorización
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setPods(data); // Actualizar el estado con los pods obtenidos
+        } else {
+          console.error('Error fetching pods:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching pods:', error);
+      }
+    };
+
+    fetchPods();
+  }, []); // Ejecutar una vez al cargar el componente
+
+  const filteredPods = pods.filter(pod =>
     pod.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -25,7 +67,7 @@ function Dashboard({ onLogout }) {
   };
 
   const handleCloseTerminal = () => {
-    setSelectedPod(null); 
+    setSelectedPod(null);
   };
 
   return (
@@ -71,14 +113,14 @@ function Dashboard({ onLogout }) {
             </thead>
             <tbody>
               {filteredPods.map((pod) => (
-                <tr key={pod.id}>
+                <tr key={pod.name}>
                   <td>{pod.name}</td>
                   <td>{pod.image}</td>
                   <td>{pod.ports}</td>
-                  <td>{pod.podIp}</td>
+                  <td>{pod.ip || 'N/A'}</td> {/* Mostrar IP si está disponible */}
                   <td>
                     <button className="icon-button">⚙️</button>
-                    <button className="icon-button">🗑️</button>
+                    <button className="icon-button" onClick={() => handleDeletePod(pod.name)}>🗑️</button>
                   </td>
                   <td>
                     <span className={`status-badge ${pod.status.toLowerCase()}`}>
@@ -91,6 +133,7 @@ function Dashboard({ onLogout }) {
                 </tr>
               ))}
             </tbody>
+
           </table>
           <div className="pagination">
             <div className="page-numbers">

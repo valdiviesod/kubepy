@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './Login.css';
 
 function Login({ onLoginSuccess, onRegisterClick }) {
   const [username, setUsername] = useState('');
@@ -7,10 +8,10 @@ function Login({ onLoginSuccess, onRegisterClick }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(''); // Limpiar cualquier error previo
 
     try {
-      const response = await fetch('http://207.248.81.113:5000/login', {
+      const response = await fetch('https://cca.bucaramanga.upb.edu.co:5000/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -20,81 +21,43 @@ function Login({ onLoginSuccess, onRegisterClick }) {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('token', data.access_token); // Guarda el token en localStorage
-        onLoginSuccess(username);
+        const token = data.access_token; // Asume que el token se devuelve como { access_token: 'JWT...' }
+        localStorage.setItem('token', token); // Almacenar el token en localStorage
+        onLoginSuccess(username); // Llamar a onLoginSuccess con el nombre de usuario
       } else {
         const errorData = await response.json();
-        setError(errorData.msg || 'Error logging in');
+        setError(errorData.message || 'Error en la autenticación');
       }
-    } catch (err) {
-      setError('Error connecting to the server');
+    } catch (error) {
+      setError('Error en la solicitud. Intenta de nuevo.');
+      console.error('Error en la solicitud:', error);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} style={formStyle}>
-      <h2>Login</h2>
-      {error && <p style={errorStyle}>{error}</p>}
-      <input
-        type="text"
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        style={inputStyle}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={inputStyle}
-      />
-      <button type="submit" style={buttonStyle}>Login</button>
-      <p style={registerLinkStyle}>
-        Don't have an account? <span onClick={onRegisterClick} style={linkStyle}>Register</span>
-      </p>
-    </form>
+    <div className="login-container">
+      <form className="login-form" onSubmit={handleSubmit}>
+        <h2>Iniciar Sesión</h2>
+        {error && <div className="error-message">{error}</div>}
+        <input
+          type="text"
+          placeholder="Nombre de usuario"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button type="submit">Iniciar Sesión</button>
+        <p>No tienes una cuenta? <span onClick={onRegisterClick} style={{ cursor: 'pointer', color: 'blue' }}>Regístrate aquí</span></p>
+      </form>
+    </div>
   );
 }
-
-const formStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  maxWidth: '300px',
-  margin: '0 auto',
-};
-
-const inputStyle = {
-  margin: '10px 0',
-  padding: '8px',
-  borderRadius: '4px',
-  border: '1px solid #ccc',
-};
-
-const buttonStyle = {
-  marginTop: '10px',
-  padding: '8px 16px',
-  backgroundColor: '#4CAF50',
-  color: 'white',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-};
-
-const registerLinkStyle = {
-  marginTop: '15px',
-  textAlign: 'center',
-};
-
-const linkStyle = {
-  color: '#4CAF50',
-  cursor: 'pointer',
-  textDecoration: 'underline',
-};
-
-const errorStyle = {
-  color: 'red',
-  marginBottom: '10px',
-};
 
 export default Login;

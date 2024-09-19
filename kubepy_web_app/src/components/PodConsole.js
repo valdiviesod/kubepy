@@ -17,7 +17,7 @@ function PodConsole({ podName, onClose }) {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(`http://207.248.81.113:5000/pods/${podName}/exec`, {
+      const response = await fetch(`https://cca.bucaramanga.upb.edu.co:5000/pods/${podName}/exec`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,20 +38,24 @@ function PodConsole({ podName, onClose }) {
   };
 
   return (
-    <div className="pod-console-overlay">
-      <div className="pod-console-container">
-        <button className="close-console-button" onClick={onClose}>×</button>
-        <h2>Pod Terminal - {podName}</h2>
-        <textarea
-          className="command-input"
-          value={command}
-          onChange={handleCommandChange}
-          placeholder="Type your command here..."
-        />
-        <button className="execute-button" onClick={handleExecuteCommand} disabled={loading}>
-          {loading ? 'Executing...' : 'Execute'}
-        </button>
-        <pre className="output-console">{output}</pre>
+    <div className="pod-console-container">
+      <div className="console-header">
+        <h2>Web terminal</h2>
+        <button className="close-button" onClick={onClose}>X</button>
+      </div>
+      <div className="console-body">
+        <div className="command-output">{output}</div>
+        <div className="command-input-container">
+          <span className="prompt">$</span>
+          <input
+            type="text"
+            className="command-input"
+            value={command}
+            onChange={handleCommandChange}
+            onKeyPress={(e) => e.key === 'Enter' && handleExecuteCommand()}
+            placeholder="Enter command..."
+          />
+        </div>
       </div>
     </div>
   );
