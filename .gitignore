@@ -171,3 +171,7 @@ pyvenv.cfg
 #React files
 /node_modules
 /build
+
+*.key
+*.bundle
+*.crt
