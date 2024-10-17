@@ -11,8 +11,10 @@ apps_v1 = client.AppsV1Api()
 
 def get_pods():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
-    user_pods = Pod.query.filter_by(user_id=current_user.id).all()
     
+    # Obtener todos los pods asociados a los grupos a los que pertenece el usuario
+    user_pods = Pod.query.join(Pod.groups).join(User.groups).filter(User.id == current_user.id).all()
+
     pod_list = []
     for pod in user_pods:
         try:
@@ -36,6 +38,7 @@ def get_pods():
             })
 
     return jsonify(pod_list), 200
+
 
 def create_pod():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
@@ -74,7 +77,7 @@ def create_pod():
         used_node_ports.add(node_port)
 
     # Create Deployment
-    deployment = client.V1Deployment(
+    deployment = client.V1Deployment(   
         api_version="apps/v1",
         kind="Deployment",
         metadata=client.V1ObjectMeta(name=pod_name),
