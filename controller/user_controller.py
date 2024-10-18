@@ -93,19 +93,21 @@ def get_user_by_id(user_id):
     return jsonify(user_info), 200
 
 def reset_password():
-    username = request.json.get('username', None)
+    current_user_username = get_jwt_identity()  
     new_password = request.json.get('new_password', None)
     
-    if not username or not new_password:
-        return jsonify({"msg": "Missing username or new password"}), 400
+    if not new_password:
+        return jsonify({"msg": "Missing new password"}), 400
 
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter_by(username=current_user_username).first()
     
     if not user:
         return jsonify({"msg": "User not found"}), 404
     
+    # Hash the new password
     hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
     
+    # Update the password in the database
     user.password = hashed_password
     db.session.commit()
     
