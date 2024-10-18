@@ -77,10 +77,7 @@ def get_all_users():
     return jsonify(user_list), 200
 
 def get_user_by_id(user_id):
-    current_user = User.query.filter_by(username=get_jwt_identity()).first()
-    
-    if current_user.role != 'admin':
-        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
+
 
     user = User.query.filter_by(id=user_id).first()
     
@@ -95,3 +92,21 @@ def get_user_by_id(user_id):
 
     return jsonify(user_info), 200
 
+def reset_password():
+    username = request.json.get('username', None)
+    new_password = request.json.get('new_password', None)
+    
+    if not username or not new_password:
+        return jsonify({"msg": "Missing username or new password"}), 400
+
+    user = User.query.filter_by(username=username).first()
+    
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+    
+    hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+    
+    user.password = hashed_password
+    db.session.commit()
+    
+    return jsonify({"msg": "Password reset successfully"}), 200
