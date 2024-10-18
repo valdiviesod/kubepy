@@ -61,10 +61,10 @@ def change_role():
     return jsonify({"msg": f"Role updated to {new_role} for user {user_to_update}"}), 200
 
 
-def get_users():
+def get_all_users():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
-    if current_user.role != 'admin':
+    if current_user.role != 'admin' or 'teacher':
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
 
     users = User.query.all()
@@ -75,3 +75,23 @@ def get_users():
     } for user in users]
 
     return jsonify(user_list), 200
+
+def get_user_by_id(user_id):
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    
+    if current_user.role != 'admin':
+        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
+
+    user = User.query.filter_by(id=user_id).first()
+    
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    user_info = {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role
+    }
+
+    return jsonify(user_info), 200
+

@@ -6,6 +6,9 @@ from database.db import db
 
 def create_group():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
+
+    if current_user.role != 'admin' or 'teacher':
+        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
     
     if not current_user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
@@ -30,6 +33,9 @@ def create_group():
 # Actualizar un grupo
 def update_group(group_id):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
+
+    if current_user.role != 'admin' or 'teacher':
+        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
     
     if not current_user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
@@ -53,6 +59,9 @@ def update_group(group_id):
 def delete_group(group_id):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
 
+    if current_user.role != 'admin' or 'teacher':
+        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
+
     if not current_user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
 
@@ -66,10 +75,10 @@ def delete_group(group_id):
 
     return jsonify({"msg": "Grupo eliminado con éxito"}), 200
 
-def get_groups():
+def get_all_zgroups():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
-    if current_user.role != 'admin':
+    if current_user.role != 'admin' or 'teacher':
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
 
     groups = Group.query.all()
@@ -82,3 +91,22 @@ def get_groups():
 
     return jsonify(group_list), 200
 
+def get_group(group_id):
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+
+    if not current_user or (current_user.role != 'admin' and current_user.role != 'teacher'):
+        return jsonify({"msg": "Unauthorized. Admin or Teacher access required."}), 403
+
+    group = Group.query.filter_by(id=group_id).first()
+
+    if not group:
+        return jsonify({"msg": "Grupo no encontrado"}), 404
+
+    group_info = {
+        "id": group.id,
+        "name": group.name,
+        "description": group.description,
+        "users": [user.username for user in group.users]
+    }
+
+    return jsonify(group_info), 200
