@@ -75,7 +75,7 @@ def delete_group(group_id):
 
     return jsonify({"msg": "Grupo eliminado con éxito"}), 200
 
-def get_all_zgroups():
+def get_all_groups():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
     if current_user.role != 'admin' or 'teacher':
