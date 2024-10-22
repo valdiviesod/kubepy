@@ -6,9 +6,10 @@ from database.db import db
 
 @jwt_required()
 def create_group():
+    current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
-
-    if current_user.role != 'admin' or 'teacher':
+    
+    if current_user.role not in ['admin', 'teacher']:
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
     
     if not current_user:
@@ -16,6 +17,8 @@ def create_group():
     
     data = request.get_json()
     group_name = data.get('name')
+    group_users = data.get('users')
+    group_pods = data.get('pods')
 
     if not group_name:
         return jsonify({"msg": "Falta el nombre del grupo"}), 400
@@ -25,7 +28,7 @@ def create_group():
     if existing_group:
         return jsonify({"msg": "El grupo ya existe"}), 400
     
-    new_group = Group(name=group_name)
+    new_group = Group(name=group_name, users=group_users, pods=group_pods)
     db.session.add(new_group)
     db.session.commit()
 
@@ -33,9 +36,10 @@ def create_group():
 
 @jwt_required()
 def update_group(group_id):
+    current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
-
-    if current_user.role != 'admin' or 'teacher':
+    
+    if current_user.role not in ['admin', 'teacher']:
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
     
     if not current_user:
@@ -59,9 +63,10 @@ def update_group(group_id):
 
 @jwt_required()
 def delete_group(group_id):
+    current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
-
-    if current_user.role != 'admin' or 'teacher':
+    
+    if current_user.role not in ['admin', 'teacher']:
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
 
     if not current_user:
@@ -79,9 +84,10 @@ def delete_group(group_id):
 
 @jwt_required()
 def get_all_groups():
+    current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
-    if current_user.role != 'admin' or 'teacher':
+    if current_user.role not in ['admin', 'teacher']:
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
 
     groups = Group.query.all()
@@ -96,10 +102,11 @@ def get_all_groups():
 
 @jwt_required()
 def get_group(group_id):
+    current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
-
-    if not current_user or (current_user.role != 'admin' and current_user.role != 'teacher'):
-        return jsonify({"msg": "Unauthorized. Admin or Teacher access required."}), 403
+    
+    if current_user.role not in ['admin', 'teacher']:
+        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
 
     group = Group.query.filter_by(id=group_id).first()
 

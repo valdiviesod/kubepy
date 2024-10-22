@@ -41,13 +41,14 @@ def login():
 
 @jwt_required()
 def change_role():
-    current_user = get_jwt_identity()
+    current_user_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    
+    if current_user.role not in ['admin']:
+        return jsonify({"msg": "Unauthorized. Admin access required."}), 403
+    
     user_to_update = request.json.get('user_id', None)
     new_role = request.json.get('role', None)
-    
-    current_user_obj = User.query.filter_by(username=current_user).first()
-    if current_user_obj.role != 'admin':
-        return jsonify({"msg": "Permission denied"}), 403
     
     if not user_to_update or not new_role:
         return jsonify({"msg": "Missing username or role"}), 400
@@ -82,7 +83,6 @@ def get_all_users():
     return jsonify(user_list), 200
 
 def get_user_by_id(user_id):
-
 
     user = User.query.filter_by(id=user_id).first()
     
