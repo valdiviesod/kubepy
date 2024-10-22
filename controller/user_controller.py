@@ -1,8 +1,11 @@
 from flask import request, jsonify
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, get_jwt_identity  
 from model.user import User
 from database.db import db
+
+bcrypt = Bcrypt()
+
 
 bcrypt = Bcrypt()
 
@@ -16,8 +19,9 @@ def register():
     if User.query.filter_by(username=username).first():
         return jsonify({"msg": "Username already exists"}), 400
     
-    # Asigna el rol 'undefined' automáticamente
+    
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    # Asigna el rol 'undefined' automáticamente
     new_user = User(username=username, password=hashed_password, role='undefined')
     db.session.add(new_user)
     db.session.commit()
@@ -40,7 +44,6 @@ def change_role():
     user_to_update = request.json.get('user_id', None)
     new_role = request.json.get('role', None)
     
-    # Verifica que el usuario autenticado tiene el rol admin
     current_user_obj = User.query.filter_by(username=current_user).first()
     if current_user_obj.role != 'admin':
         return jsonify({"msg": "Permission denied"}), 403
@@ -62,9 +65,10 @@ def change_role():
 
 
 def get_all_users():
+    current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
-    if current_user.role != 'admin' or 'teacher':
+    if current_user.role not in ['admin', 'teacher']:
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
 
     users = User.query.all()
