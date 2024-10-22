@@ -3,10 +3,10 @@ from flask_jwt_extended import get_jwt_identity
 from kubernetes import client, config
 from model.user import User
 from model.pod import Pod
+from model.group import Group
 from database.db import db
 from sqlalchemy.orm import aliased
 from flask_jwt_extended import jwt_required
-from database.models import Pod, Group
 
 config.load_kube_config()
 v1 = client.CoreV1Api()
