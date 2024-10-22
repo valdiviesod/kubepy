@@ -102,6 +102,7 @@ function Dashboard({ onLogout }) {
                 <th>Pod Name</th>
                 <th>Image</th>
                 <th>Ports</th>
+                <th>Node Ports</th>
                 <th>Modify</th>
                 <th>Status</th>
                 <th>Terminal</th>
@@ -113,6 +114,7 @@ function Dashboard({ onLogout }) {
                   <td>{pod.name}</td>
                   <td>{pod.image}</td>
                   <td>{pod.ports}</td>
+                  <td>{pod.nodePorts}</td>
                   <td>
                     <button className="icon-button">⚙️</button>
                     <button className="icon-button" onClick={() => handleDeletePod(pod.name)}>🗑️</button>
