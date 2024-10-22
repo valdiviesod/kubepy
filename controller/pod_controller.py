@@ -1,5 +1,5 @@
 from flask import request, jsonify
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from kubernetes import client, config
 from model.user import User
 from model.pod import Pod
@@ -14,17 +14,28 @@ apps_v1 = client.AppsV1Api()
 
 @jwt_required()
 def get_pods():
-    current_user_id = get_jwt_identity()
-    
-    pod_group = aliased(Group)
-    
-    user_pods = Pod.query \
-        .join(pod_group, Pod.groups) \
-        .join(User, pod_group.users) \
-        .filter(User.id == current_user_id) \
-        .all()
-    
-    return jsonify([pod.to_dict() for pod in user_pods])
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+
+    # Obtiene todos los pods que pertenecen directamente al usuario
+    user_pods = Pod.query.filter_by(user_id=current_user.id).all()
+
+    # Obtiene todos los grupos del usuario
+    user_groups = current_user.groups
+
+    # Encuentra todos los pods que pertenecen a los grupos del usuario
+    group_pods = []
+    for group in user_groups:
+        group_pods.extend(group.pods)
+
+    # Elimina duplicados en la lista de pods (en caso de que haya pods compartidos entre grupos)
+    all_pods = list({pod.id: pod for pod in user_pods + group_pods}.values())
+
+    # Formatea la respuesta
+    pods_data = [{"id": pod.id, "name": pod.name, "image": pod.image, "ports": pod.ports} for pod in all_pods]
+
+    return jsonify(pods=pods_data), 200
 
 
 
