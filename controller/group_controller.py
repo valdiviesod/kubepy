@@ -8,7 +8,7 @@ from model.pod import Pod
 @jwt_required()
 def create_group():
     current_user_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_user_username).first()
+    current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
     if current_user.role not in ['admin', 'teacher']:
         return jsonify({"msg": "Unauthorized. Admin access required."}), 403
@@ -18,29 +18,30 @@ def create_group():
     
     data = request.get_json()
     group_name = data.get('name')
-    group_users = data.get('users', []) 
-    group_pods = data.get('pods', [])  
+    
+    # Convert the users and pods to integers (IDs)
+    group_user_ids = [int(user_id.strip()) for user_id in request.json.get('users', '').split(',') if user_id.strip().isdigit()]
+    group_pod_ids = [int(pod_id.strip()) for pod_id in request.json.get('pods', '').split(',') if pod_id.strip().isdigit()]
 
     if not group_name:
         return jsonify({"msg": "Falta el nombre del grupo"}), 400
 
+    # Verificar si el grupo ya existe
     existing_group = Group.query.filter_by(name=group_name).first()
     if existing_group:
         return jsonify({"msg": "El grupo ya existe"}), 400
+    
+    # Query for user and pod instances
+    user_instances = User.query.filter(User.id.in_(group_user_ids)).all()
+    pod_instances = Pod.query.filter(Pod.id.in_(group_pod_ids)).all()
 
-    user_instances = User.query.filter(User.username.in_(group_users)).all()
-    if len(user_instances) != len(group_users):
-        return jsonify({"msg": "Uno o más usuarios no existen"}), 400
-
-    pod_instances = Pod.query.filter(Pod.name.in_(group_pods)).all()
-    if len(pod_instances) != len(group_pods):
-        return jsonify({"msg": "Uno o más pods no existen"}), 400
-
+    # Create the new group
     new_group = Group(name=group_name, users=user_instances, pods=pod_instances)
     db.session.add(new_group)
     db.session.commit()
 
     return jsonify({"msg": "Grupo creado con éxito", "group_id": new_group.id}), 201
+
 
 @jwt_required()
 def update_group(group_id):
