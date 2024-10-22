@@ -184,3 +184,179 @@ input[type="text"], select {
   background-color: #1e1f1f;
   color: white;
 }
+
+/* Añade estos estilos a tu archivo Dashboard.css */
+
+.node-ports-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.node-port-badge {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.pod-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pod-table th {
+  background-color: #f5f5f5;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+}
+
+.pod-table td {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+}
+
+.search-input {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  width: 200px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  margin: 0 4px;
+  font-size: 1.25rem;
+}
+
+.icon-button:hover {
+  opacity: 0.8;
+}
+
+.delete-button:hover {
+  color: #dc3545;
+}
+
+/* Actualiza estos estilos en tu archivo Dashboard.css */
+
+.ports-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.port-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.container-port {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.node-port {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.pod-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pod-table th {
+  background-color: #f5f5f5;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+}
+
+.pod-table td {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+}
+
+.search-input {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  width: 200px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  margin: 0 4px;
+  font-size: 1.25rem;
+}
+
+.icon-button:hover {
+  opacity: 0.8;
+}
+
+.delete-button:hover {
+  color: #dc3545;
+}
+
+/* Estilos adicionales para mejorar la visualización */
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.terminal-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: #2c3e50;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+
+.terminal-button:hover {
+  background-color: #34495e;
+}

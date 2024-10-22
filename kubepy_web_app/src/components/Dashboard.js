@@ -68,6 +68,35 @@ function Dashboard({ onLogout }) {
     setSelectedPod(null);
   };
 
+  // Función para formatear los node ports
+  const formatNodePorts = (nodePorts) => {
+    if (!nodePorts || nodePorts.length === 0) return 'N/A';
+    return (
+      <div className="ports-container">
+        {nodePorts.map((port, index) => (
+          <span key={index} className="port-badge node-port">
+            {port}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  // Función para formatear los ports
+  const formatPorts = (portsString) => {
+    if (!portsString) return 'N/A';
+    const ports = portsString.split(',').map(port => port.trim());
+    return (
+      <div className="ports-container">
+        {ports.map((port, index) => (
+          <span key={index} className="port-badge container-port">
+            {port}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
       <aside className="sidebar">
@@ -94,47 +123,59 @@ function Dashboard({ onLogout }) {
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
             />
           </div>
-          <table className="pod-table">
-            <thead>
-              <tr>
-                <th>Pod Name</th>
-                <th>Image</th>
-                <th>Ports</th>
-                <th>Node Ports</th>
-                <th>Modify</th>
-                <th>Status</th>
-                <th>Terminal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPods.map((pod) => (
-                <tr key={pod.name}>
-                  <td>{pod.name}</td>
-                  <td>{pod.image}</td>
-                  <td>{pod.ports}</td>
-                  <td>{pod.nodePorts}</td>
-                  <td>
-                    <button className="icon-button">⚙️</button>
-                    <button className="icon-button" onClick={() => handleDeletePod(pod.name)}>🗑️</button>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${pod.status?.toLowerCase()}`}>
-                      {pod.status}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="terminal-button" onClick={() => handleOpenTerminal(pod.name)}>🖥️ Open Terminal</button>
-                  </td>
+          <div className="table-container">
+            <table className="pod-table">
+              <thead>
+                <tr>
+                  <th>Pod Name</th>
+                  <th>Image</th>
+                  <th>Container Ports</th>
+                  <th>Node Ports</th>
+                  <th>Modify</th>
+                  <th>Status</th>
+                  <th>Terminal</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredPods.map((pod) => (
+                  <tr key={pod.name}>
+                    <td>{pod.name}</td>
+                    <td>{pod.image}</td>
+                    <td>{formatPorts(pod.ports)}</td>
+                    <td>{formatNodePorts(pod.node_ports)}</td>
+                    <td>
+                      <button className="icon-button">⚙️</button>
+                      <button 
+                        className="icon-button delete-button" 
+                        onClick={() => handleDeletePod(pod.name)}
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${pod.status?.toLowerCase()}`}>
+                        {pod.status || 'Unknown'}
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        className="terminal-button" 
+                        onClick={() => handleOpenTerminal(pod.name)}
+                      >
+                        🖥️ Terminal
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div className="pagination">
             <div className="page-numbers">
               <button className="page-button active">1</button>
-
             </div>
           </div>
         </div>
