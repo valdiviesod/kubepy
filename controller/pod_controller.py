@@ -4,43 +4,28 @@ from kubernetes import client, config
 from model.user import User
 from model.pod import Pod
 from database.db import db
+from sqlalchemy.orm import aliased
+from flask_jwt_extended import jwt_required
+from database.models import Pod, Group
 
 config.load_kube_config()
 v1 = client.CoreV1Api()
 apps_v1 = client.AppsV1Api()
 
+@jwt_required()
 def get_pods():
-    current_user = User.query.filter_by(username=get_jwt_identity()).first()
+    current_user_id = get_jwt_identity()
     
-    # Obtener todos los pods asociados a los grupos a los que pertenece el usuario
-    user_pods = Pod.query.join(Pod.groups.alias('pod_group')) \
-                     .join(User.groups.alias('user_group')) \
-                     .filter(User.id == current_user.id).all()
+    pod_group = aliased(Group)
+    
+    user_pods = Pod.query \
+        .join(pod_group, Pod.groups) \
+        .join(User, pod_group.users) \
+        .filter(User.id == current_user_id) \
+        .all()
+    
+    return jsonify([pod.to_dict() for pod in user_pods])
 
-
-    pod_list = []
-    for pod in user_pods:
-        try:
-            k8s_pod = v1.read_namespaced_pod(name=pod.name, namespace="default")
-            status = k8s_pod.status.phase
-            pod_ip = k8s_pod.status.pod_ip
-            
-            pod_list.append({
-                "name": pod.name,
-                "image": pod.image,
-                "ports": pod.ports,
-                "status": status,
-                "ip": pod_ip
-            })
-
-        except client.exceptions.ApiException:
-            pod_list.append({
-                "name": pod.name,
-                "status": "Not Found in Kubernetes",
-                "ip": "Not Available"
-            })
-
-    return jsonify(pod_list), 200
 
 
 def create_pod():
