@@ -13,7 +13,10 @@ def get_pods():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
     # Obtener todos los pods asociados a los grupos a los que pertenece el usuario
-    user_pods = Pod.query.join(Pod.groups).join(User.groups).filter(User.id == current_user.id).all()
+    user_pods = Pod.query.join(Pod.groups.alias('pod_group')) \
+                     .join(User.groups.alias('user_group')) \
+                     .filter(User.id == current_user.id).all()
+
 
     pod_list = []
     for pod in user_pods:
