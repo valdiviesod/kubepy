@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import create_access_token, get_jwt_identity  
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required 
 from model.user import User
 from database.db import db
 
@@ -39,6 +39,7 @@ def login():
     
     return jsonify({"msg": "Invalid username or password"}), 401
 
+@jwt_required()
 def change_role():
     current_user = get_jwt_identity()
     user_to_update = request.json.get('user_id', None)
@@ -63,7 +64,7 @@ def change_role():
     
     return jsonify({"msg": f"Role updated to {new_role} for user {user_to_update}"}), 200
 
-
+@jwt_required()
 def get_all_users():
     current_user_username = get_jwt_identity()
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
@@ -96,6 +97,7 @@ def get_user_by_id(user_id):
 
     return jsonify(user_info), 200
 
+@jwt_required()
 def reset_password():
     current_user_username = get_jwt_identity()  
     new_password = request.json.get('new_password', None)

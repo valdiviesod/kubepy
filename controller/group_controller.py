@@ -1,9 +1,10 @@
 from flask import request, jsonify
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required 
 from model.group import Group
 from model.user import User
 from database.db import db
 
+@jwt_required()
 def create_group():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
 
@@ -30,7 +31,7 @@ def create_group():
 
     return jsonify({"msg": "Grupo creado con éxito", "group_id": new_group.id}), 201
 
-# Actualizar un grupo
+@jwt_required()
 def update_group(group_id):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
 
@@ -56,6 +57,7 @@ def update_group(group_id):
 
     return jsonify({"msg": "Grupo actualizado con éxito"}), 200
 
+@jwt_required()
 def delete_group(group_id):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
 
@@ -75,6 +77,7 @@ def delete_group(group_id):
 
     return jsonify({"msg": "Grupo eliminado con éxito"}), 200
 
+@jwt_required()
 def get_all_groups():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
     
@@ -91,6 +94,7 @@ def get_all_groups():
 
     return jsonify(group_list), 200
 
+@jwt_required()
 def get_group(group_id):
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
 
