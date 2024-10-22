@@ -8,33 +8,28 @@ from dotenv import load_dotenv
 import os
 from werkzeug.serving import run_simple
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 
 # Initialize extensions
-db.init_app(app)
 jwt = JWTManager(app)
 
-# Register blueprints
 app.register_blueprint(user_bp)
 app.register_blueprint(pod_bp)
+app.register_blueprint(group_bp)
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
 
-    # Define paths to certificate and key files
     cert_path = "./STAR_bucaramanga_upb_edu_co.crt"
     key_path = "./web14.key"
     ca_bundle_path = "./STAR_bucaramanga_upb_edu_co.ca-bundle"
 
-    # Run the app with HTTPS
     run_simple('0.0.0.0', 5000, app, ssl_context=(cert_path, key_path))
