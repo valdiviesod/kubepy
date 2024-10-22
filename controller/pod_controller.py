@@ -29,15 +29,25 @@ def get_pods():
     for group in user_groups:
         group_pods.extend(group.pods)
 
-    # Elimina duplicados en la lista de pods (en caso de que haya pods compartidos entre grupos)
+    # Elimina duplicados en la lista de pods
     all_pods = list({pod.id: pod for pod in user_pods + group_pods}.values())
 
-    # Formatea la respuesta
-    pods_data = [{"id": pod.id, "name": pod.name, "image": pod.image, "ports": pod.ports} for pod in all_pods]
+    # Formatea la respuesta incluyendo node_ports
+    pods_data = []
+    for pod in all_pods:
+        pod_data = {
+            "id": pod.id,
+            "name": pod.name,
+            "image": pod.image,
+            "ports": pod.ports,
+            "node_ports": pod.node_ports.split(',') if pod.node_ports else []  # Convert string to list
+        }
+        # Convert node_ports to integers
+        if pod_data["node_ports"]:
+            pod_data["node_ports"] = [int(port) for port in pod_data["node_ports"]]
+        pods_data.append(pod_data)
 
     return jsonify(pods=pods_data), 200
-
-
 
 def create_pod():
     current_user = User.query.filter_by(username=get_jwt_identity()).first()
@@ -107,10 +117,10 @@ def create_pod():
     # Create Service
     service_ports = [
         client.V1ServicePort(
-            name=f"port-{i}",  # Add a unique name for each port
+            name=f"port-{i}",
             port=port,
             target_port=port,
-            node_port=node_ports[i] if i < len(node_ports) else None  # Assign node port from list
+            node_port=node_ports[i] if i < len(node_ports) else None
         )
         for i, port in enumerate(ports)
     ]
@@ -131,16 +141,16 @@ def create_pod():
     except client.exceptions.ApiException as e:
         return jsonify({"msg": f"Error creating service: {str(e)}"}), 500
 
-    # Convert ports list to a comma-separated string
+    # Convert ports and node_ports lists to comma-separated strings
     ports_str = ','.join(map(str, ports))
+    node_ports_str = ','.join(map(str, node_ports))
 
     # Save Pod to Database
     new_pod = Pod(
         name=pod_name,
         image=image,
-        ports=ports_str,  # Save as a comma-separated string
-        ip=None,
-        status=None,
+        ports=ports_str,
+        node_ports=node_ports_str,  # Save node_ports as comma-separated string
         user_id=current_user.id
     )
     db.session.add(new_pod)
@@ -149,7 +159,7 @@ def create_pod():
     return jsonify({
         "msg": "Pod created successfully",
         "pod_name": pod_name,
-        "node_ports": node_ports  # Return the assigned nodePorts
+        "node_ports": node_ports
     }), 201
 
 
