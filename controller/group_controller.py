@@ -17,8 +17,9 @@ def create_group():
     
     data = request.get_json()
     group_name = data.get('name')
-    group_users = data.get('users')
-    group_pods = data.get('pods')
+    group_users = request.json.get('users', '').split(',')
+    group_pods = request.json.get('pods', '').split(',')
+
 
     if not group_name:
         return jsonify({"msg": "Falta el nombre del grupo"}), 400
