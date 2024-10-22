@@ -18,16 +18,15 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 
-# Initialize extensions
 jwt = JWTManager(app)
-
+db.init_app(app)  
 app.register_blueprint(user_bp)
 app.register_blueprint(pod_bp)
 app.register_blueprint(group_bp)
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        db.create_all()  
 
     cert_path = "./STAR_bucaramanga_upb_edu_co.crt"
     key_path = "./web14.key"
