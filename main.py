@@ -4,6 +4,7 @@ from flask_jwt_extended import JWTManager
 from database.db import db
 from routes.user_routes import user_bp
 from routes.pod_routes import pod_bp
+from routes.group_routes import group_bp
 from dotenv import load_dotenv
 import os
 from werkzeug.serving import run_simple
