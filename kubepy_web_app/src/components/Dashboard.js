@@ -105,7 +105,6 @@ function Dashboard({ onLogout }) {
                 <th>Pod Name</th>
                 <th>Image</th>
                 <th>Ports</th>
-                <th>Pod IP</th>
                 <th>Modify</th>
                 <th>Status</th>
                 <th>Terminal</th>
@@ -117,7 +116,6 @@ function Dashboard({ onLogout }) {
                   <td>{pod.name}</td>
                   <td>{pod.image}</td>
                   <td>{pod.ports}</td>
-                  <td>{pod.ip || 'N/A'}</td> {/* Mostrar IP si está disponible */}
                   <td>
                     <button className="icon-button">⚙️</button>
                     <button className="icon-button" onClick={() => handleDeletePod(pod.name)}>🗑️</button>
